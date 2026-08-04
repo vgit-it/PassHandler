@@ -20,7 +20,10 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": false,
 
-    "types": ["vite/client"],
+    // `node` is here for the build configs and the test suite, which run under
+    // Node. Application code is kept to browser globals by the ESLint config,
+    // which scopes `globals.node` to tests and *.config.ts only.
+    "types": ["vite/client", "node"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

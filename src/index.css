@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-ink-900 text-slate-200 antialiased;
+    /* The vault is not a document. Selecting and dragging its chrome around
+       serves no purpose and makes the app feel like a web page. */
+    -webkit-user-select: none;
+    user-select: none;
+    overscroll-behavior: none;
+  }
+
+  /* Anything the user might actually want to select or copy by hand. */
+  input,
+  textarea,
+  [data-selectable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Keyboard focus must stay obvious — this app is driven by the keyboard on
+     Windows, where arrow keys and Enter do the real work. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-ink-900;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-ink-500;
+  }
+}
+
+@layer components {
+  .field {
+    @apply w-full rounded-lg border border-ink-500 bg-ink-800 px-3 py-2 text-sm
+           text-slate-100 placeholder:text-slate-500
+           focus:border-accent focus:outline-none;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2
+           text-sm font-medium transition-colors
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-ink-900 hover:bg-accent/90;
+  }
+
+  .btn-secondary {
+    @apply btn border border-ink-500 bg-ink-700 text-slate-200 hover:bg-ink-600;
+  }
+
+  .btn-ghost {
+    @apply btn text-slate-400 hover:bg-ink-700 hover:text-slate-200;
+  }
+
+  .btn-danger {
+    @apply btn border border-bad/40 bg-bad/10 text-bad hover:bg-bad/20;
+  }
+
+  .label {
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400;
+  }
+
+  .card {
+    @apply rounded-xl border border-ink-600 bg-ink-800;
+  }
+}
