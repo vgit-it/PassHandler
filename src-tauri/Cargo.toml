@@ -1,0 +1,66 @@
+[package]
+name = "pass-handler"
+version = "1.0.0"
+description = "KeePass-compatible password manager for Windows and Android"
+authors = ["Pass Handler"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+# Required for the Android build: the mobile entry point links against a shared
+# library, while the desktop binary links the same code statically.
+name = "pass_handler_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-os = "2"
+tauri-plugin-passhandler = { path = "plugins/tauri-plugin-passhandler" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+log = "0.4"
+
+tokio = { version = "1", features = ["rt", "sync", "time", "net", "io-util", "macros"] }
+
+# rustls rather than the platform TLS stack: one behaviour on Windows and
+# Android instead of two, and no dependency on the system trust store being
+# configured for the Android sandbox.
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-webpki-roots",
+    "json",
+    "charset",
+    "http2",
+    "multipart",
+] }
+
+base64 = "0.22"
+sha2 = "0.10"
+getrandom = "0.2"
+url = "2"
+urlencoding = "2"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-biometric = "2"
+
+[features]
+# `tauri/custom-protocol` is what the CLI turns on for a production bundle.
+# Devtools are enabled only for debug builds — see the `devtools` feature wired
+# up in lib.rs — so a released binary ships without an inspector.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
