@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes the older run irrelevant. Android and
+# Windows builds are slow enough that letting superseded runs finish is a real
+# waste.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # The vault and sync layers are pure TypeScript, so the whole Node suite is
+  # deterministic. Fail rather than retry.
+  CI: true
+
+jobs:
+  # Everything that can be verified without a Windows machine or an Android
+  # SDK. This is the fast job: it should fail first when something ordinary
+  # breaks, so the two slow platform jobs are not the ones reporting it.
+  checks:
+    name: Checks (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libxdo-dev \
+            libssl-dev \
+            patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: linux
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Enforces the rules that keep the codebase honest: no `Math.random`
+      # anywhere, and no `@tauri-apps/*` import inside src/vault, src/crypto or
+      # src/sync. Those bans are what let the sync scenarios run under Node.
+      - name: Lint
+        run: npm run lint
+
+      # KDBX3/AES, KDBX4/Argon2d and KDBX4/Argon2id round-trips, all six PRD
+      # sync scenarios against a Drive stand-in with real revision semantics,
+      # and the generator's distribution checks.
+      - name: Test
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Cargo check
+        run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets
+
+      - name: Cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+
+  # The shipping desktop target. This is the only thing that compiles the
+  # Credential Manager and Windows Hello paths against the MSVC toolchain —
+  # `IUserConsentVerifierInterop` and the raw-HWND hand-off in
+  # plugins/tauri-plugin-passhandler/src/desktop.rs.
+  windows:
+    name: Build (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: windows
+
+      - run: npm ci
+
+      # Fast and with a far clearer error than a full bundle run, so a broken
+      # WinRT binding reports in minutes rather than at the end of a build.
+      - name: Cargo check (MSVC)
+        run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets
+
+      # Runs `npm run build` first via beforeBuildCommand, then produces the
+      # NSIS installer and MSI configured in tauri.conf.json.
+      - name: Build installers
+        run: npx tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installers
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+  # The first compiler to ever see PassHandlerPlugin.kt. Keystore-backed
+  # EncryptedSharedPreferences, BiometricPrompt, FLAG_SECURE, the sensitive
+  # clipboard flag and the OAuth redirect handler are all written but have
+  # never been built.
+  android:
+    name: Build (Android)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install SDK and NDK packages
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;27.2.12479018"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: android
+
+      - run: npm ci
+
+      # src-tauri/gen/ is generated and gitignored, so it is recreated on every
+      # run. Non-interactive: the identifier is already com.passhandler.app in
+      # tauri.conf.json.
+      - name: Initialise the Android project
+        run: npx tauri android init
+
+      # --debug uses the auto-generated debug keystore, so proving the Kotlin
+      # and the Rust JNI layer compile needs no signing secrets. No OAuth client
+      # IDs are present either: .env is gitignored, and the app is built to run
+      # local-only when it is absent, so that path is exercised here too.
+      - name: Build APK
+        run: npx tauri android build --debug --apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
