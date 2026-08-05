@@ -9,6 +9,11 @@ android {
 
     defaultConfig {
         minSdk = 26
+
+        // Shipped to whatever consumes this library — in practice the generated
+        // app module, which cannot carry rules of its own because
+        // `tauri android init` regenerates it.
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     compileOptions {

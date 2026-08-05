@@ -119,7 +119,9 @@ Every milestone in the specification is implemented.
 CI builds both platforms on every push: the TypeScript layers with 43 tests, the
 Windows binary against MSVC into an NSIS installer and an MSI, and the Android
 APK including the Kotlin plugin. Everything in the repository compiles, links and
-packages.
+packages. Pushing a `v*` tag builds release-profile installers and per-architecture
+signed APKs and attaches them to a GitHub Release — see
+[DISTRIBUTION.md](docs/DISTRIBUTION.md).
 
 What CI cannot do is *run* it. Windows Hello prompting, Android biometrics and
 `FLAG_SECURE`, real Google Drive traffic, and the KeePassXC round-trip all need
