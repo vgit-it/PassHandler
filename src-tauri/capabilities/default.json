@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The complete set of capabilities granted to the Pass Handler window. Notably absent: the filesystem, shell, process and HTTP plugins. They are not permitted here because they are not dependencies at all — the renderer cannot read a file, spawn a process or make a network request, and every one of those operations goes through a named command in this crate instead.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "os:allow-platform",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://*" }, { "url": "http://*" }]
+    },
+    "passhandler:default"
+  ]
+}

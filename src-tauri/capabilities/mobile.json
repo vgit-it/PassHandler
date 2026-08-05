@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Android-only additions. The biometric plugin is not built for Windows at all, so its permission cannot live in the shared capability.",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": ["biometric:default"]
+}

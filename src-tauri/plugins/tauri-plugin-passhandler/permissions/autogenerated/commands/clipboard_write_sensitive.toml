@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-clipboard-write-sensitive"
+description = "Enables the clipboard_write_sensitive command without any pre-configured scope."
+commands.allow = ["clipboard_write_sensitive"]
+
+[[permission]]
+identifier = "deny-clipboard-write-sensitive"
+description = "Denies the clipboard_write_sensitive command without any pre-configured scope."
+commands.deny = ["clipboard_write_sensitive"]
