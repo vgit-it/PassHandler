@@ -114,8 +114,14 @@ is never deleted because the remote is missing.
 
 ## Status
 
-Every milestone in the specification is implemented. The TypeScript layers and
-the Rust for both Linux and Windows targets are verified here; the Android
-Kotlin, Windows Hello prompting, and real Drive traffic have not been compiled
-or run in the build environment and need your hardware.
-[VERIFICATION.md](docs/VERIFICATION.md) is precise about which is which.
+Every milestone in the specification is implemented.
+
+CI builds both platforms on every push: the TypeScript layers with 43 tests, the
+Windows binary against MSVC into an NSIS installer and an MSI, and the Android
+APK including the Kotlin plugin. Everything in the repository compiles, links and
+packages.
+
+What CI cannot do is *run* it. Windows Hello prompting, Android biometrics and
+`FLAG_SECURE`, real Google Drive traffic, and the KeePassXC round-trip all need
+your hardware. [VERIFICATION.md](docs/VERIFICATION.md) is precise about which is
+which.

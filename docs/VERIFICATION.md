@@ -54,10 +54,31 @@ rule.
 
 ### `cargo check`
 
-Both targets pass clean. The Windows target matters: it is the only thing here
-that compiles the Credential Manager and Windows Hello code paths, including the
-`IUserConsentVerifierInterop` call a Win32 process needs. It is a type check, not
-a run — it proves the code compiles, not that Hello prompts correctly.
+Both targets pass clean. The `x86_64-pc-windows-gnu` cross-check is a fast local
+proxy for the Windows code paths; CI compiles the same code against MSVC, which
+is the toolchain that actually ships.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request, and covers the
+two platforms a Linux checkout cannot build. All three jobs must pass.
+
+| Job | What it proves |
+|---|---|
+| **Checks** (Linux) | The commands above: typecheck, lint, the 43 tests, the frontend build, `cargo check --all-targets`, `cargo test --lib` |
+| **Build (Windows)** | `cargo check` against **MSVC**, then a full `tauri build`. Uploads the NSIS installer and the MSI |
+| **Build (Android)** | `tauri android init`, then `tauri android build --debug --apk` — compiles the Kotlin plugin and links the Rust for all four Android ABIs. Uploads the APK |
+
+The Windows job is the only thing that compiles the Credential Manager and
+Windows Hello paths, including the `IUserConsentVerifierInterop` call a Win32
+process needs. The Android job is the only thing that compiles
+`PassHandlerPlugin.kt` at all.
+
+Neither job runs the app. They prove the code compiles, links and packages —
+not that Hello prompts, that a fingerprint is accepted, or that Drive answers.
+
+No secrets are configured. `.env` is absent in CI, so every run also confirms
+the app builds and packages in its local-only, sync-not-configured state.
 
 ### Browser engine check
 
@@ -77,16 +98,27 @@ as a dependency for a single smoke check.
 
 ## Not verified here — needs your hardware
 
-The build environment is Linux with no Android SDK and no Windows. The following
-is written in full but has never been compiled or run:
+Everything below **compiles and packages** in CI. None of it has been *run*, and
+no compiler can tell you whether it behaves correctly against a real sensor, a
+real credential store, or Google's servers:
 
-- **The Android half of the native plugin.** Kotlin: Keystore-backed
-  `EncryptedSharedPreferences`, `BiometricPrompt`, `FLAG_SECURE`, the
-  sensitive-clipboard flag, and the OAuth redirect intent handler.
-- **Windows Hello prompting**, and Credential Manager reads and writes.
+- **Android platform behaviour at runtime.** The Kotlin compiles, but nothing has
+  yet exercised Keystore-backed `EncryptedSharedPreferences` against a real
+  Keystore, shown a `BiometricPrompt`, confirmed `FLAG_SECURE` blanks the task
+  switcher, or checked that the sensitive-clipboard flag keeps a password out of
+  clipboard history. The OAuth redirect intent handler has never received an
+  intent.
+- **Windows Hello prompting**, and Credential Manager reads and writes. The
+  `IUserConsentVerifierInterop` call compiles against MSVC; whether it puts a
+  prompt on screen is a different question.
 - **Any real Google Drive traffic.** The Drive client is exercised only against
   the fake.
-- **Packaging** — the NSIS installer and the APK.
+- **Installing and launching the artifacts.** CI produces an NSIS installer, an
+  MSI and a debug APK. Nobody has installed or opened any of them.
+
+A debug APK is not a release APK: the release path needs your own keystore, and
+the release key's SHA-1 needs its own Android OAuth client. See
+[DISTRIBUTION.md](./DISTRIBUTION.md).
 
 ## Manual acceptance
 
@@ -105,15 +137,22 @@ Only real KeePassXC can prove this; it is not installable in CI.
 4. Add and edit entries in Pass Handler, then open the same file in KeePassXC.
    Confirm the changes are there and KeePassXC reports no format problems.
 
-### 2. Android toolchain — do this early
+### 2. Android toolchain
 
-Android toolchain problems discovered late are the main risk to this project.
+This used to be the main risk to the project. CI now runs `android init` and
+builds an APK on every push, so the Gradle wiring, the Kotlin and the four Rust
+ABI targets are known-good — what is left is your local SDK and NDK install, and
+a real device.
 
 ```bash
 npm run tauri android init
 npm run tauri android dev      # emulator
 npm run tauri android dev --open   # physical device
 ```
+
+If your local build fails where CI succeeds, the difference is your toolchain,
+not the code. Compare against the versions the Android job installs in
+`.github/workflows/ci.yml`.
 
 Then get the SHA-1 and register the OAuth clients — see
 [google-oauth-setup.md](./google-oauth-setup.md).

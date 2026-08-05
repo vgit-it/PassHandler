@@ -14,6 +14,13 @@ Pass Handler targets **Windows and Android**. macOS and iOS are out of scope.
 npm install
 ```
 
+### Or let CI build it
+
+Every push builds both platforms. The workflow run's artifacts contain the NSIS
+installer and MSI, and a **debug** APK. That is enough to try the app on a device
+without installing either toolchain — but a debug APK is signed with the shared
+debug key and is not what you hand to anyone. Release signing is below.
+
 ---
 
 ## Windows
