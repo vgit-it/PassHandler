@@ -36,7 +36,17 @@ impl SecretSlot {
 
 pub const SERVICE_NAME: &str = "com.passhandler.app";
 
-#[derive(Debug, Clone, Deserialize)]
+// Every type below derives both halves of serde, which looks redundant if you
+// only picture the command layer: requests arrive from the webview, responses
+// go back to it, so one direction each would do.
+//
+// On Android the same structs make a second trip. `run_mobile_plugin` serialises
+// the request across the JNI boundary into Kotlin and deserialises what Kotlin
+// resolves with, so a request must also be `Serialize` and a response must also
+// be `Deserialize`. Dropping either derive compiles on desktop and breaks only
+// the Android build.
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecureStoreSetRequest {
     pub slot: SecretSlot,
@@ -45,7 +55,7 @@ pub struct SecureStoreSetRequest {
     pub value: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecureStoreGetRequest {
     pub slot: SecretSlot,
@@ -54,13 +64,13 @@ pub struct SecureStoreGetRequest {
     pub reason: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecureStoreDeleteRequest {
     pub slot: SecretSlot,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecureStoreGetResponse {
     /// `None` when the slot is empty. Distinguishing "no value stored" from
@@ -69,7 +79,7 @@ pub struct SecureStoreGetResponse {
     pub value: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BiometricStatusResponse {
     /// Hardware present and at least one credential enrolled.
@@ -79,25 +89,25 @@ pub struct BiometricStatusResponse {
     pub reason: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BiometricAuthenticateRequest {
     pub reason: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScreenCaptureRequest {
     pub blocked: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipboardWriteRequest {
     pub text: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipboardClearRequest {
     /// Cleared only if the clipboard still holds exactly this. Anything the
@@ -105,7 +115,7 @@ pub struct ClipboardClearRequest {
     pub expected: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipboardClearResponse {
     pub cleared: bool,
