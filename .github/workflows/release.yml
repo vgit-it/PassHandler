@@ -10,6 +10,13 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # A release pipeline that is only ever exercised at tag time is a pipeline you
+  # find out is broken at tag time. Changes to it build for real on the pull
+  # request; the publish job stays gated on the tag, so nothing is released.
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - .github/scripts/**
   workflow_dispatch:
     inputs:
       android_targets:
