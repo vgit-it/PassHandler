@@ -25,14 +25,20 @@ Two workflows build this repository, and they exist for different reasons.
 | Runs on | every push and PR | a `v*` tag, or by hand |
 | Purpose | prove it compiles | produce what you install |
 | Rust profile | dev | release — LTO, `opt-level = "s"`, stripped |
-| Android output | one universal debug APK, **~640 MB** | one release APK per architecture, **tens of MB** |
+| Android output | one universal debug APK, **~640 MB** | one release APK per architecture, **~5 MB** |
 | Signed | debug key | your release key, if configured |
 
 CI's APK is enormous on purpose and not a sign of anything wrong. Tauri's
 generated `app/build.gradle.kts` sets `jniLibs.keepDebugSymbols` for debug
 builds, so every Rust symbol survives packaging, and the universal APK carries
 all four architectures at once. Release strips and minifies, and `--split-per-abi`
-stops you downloading three architectures your phone will never load.
+stops you downloading three architectures your phone will never load. Measured:
+640 MB down to about 5 MB for `arm64-v8a`.
+
+Only release builds run R8, so the two workflows genuinely exercise different
+code paths — minification rules that are missing break the release build and
+nothing else. That is why `release.yml` also runs on pull requests that touch
+it.
 
 ### Cutting a release
 
