@@ -171,6 +171,17 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      # `gh release create <files>` treats any argument that resolves to a
+      # directory as fatal, and it aborts the whole command rather than
+      # skipping just that entry — which is what happened here: a bare
+      # `artifacts/*` glob picked up something under the merged download that
+      # wasn't a plain file, and gh rolled back the release it had just
+      # created rather than leave a half-populated one behind. Logging the
+      # listing means a repeat is visible in this step's own log rather than
+      # requiring a blob-storage download to diagnose after the fact.
+      - name: List downloaded artifacts
+        run: find artifacts -mindepth 1 -exec ls -ld {} +
+
       # `gh` is preinstalled on the runner. Using it rather than a third-party
       # release action keeps one less unpinned dependency in the pipeline that
       # publishes a password manager.
@@ -178,8 +189,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # -type f rather than the bare glob: only real files are ever valid
+          # release assets, and mapfile keeps each path a single argument even
+          # when the installer filenames contain spaces ("Pass Handler ...").
+          mapfile -t assets < <(find artifacts -maxdepth 1 -type f)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "no files found directly under artifacts/" >&2
+            exit 1
+          fi
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Pass Handler $GITHUB_REF_NAME" \
             --generate-notes \
-            artifacts/*
+            "${assets[@]}"
