@@ -184,7 +184,7 @@ jobs:
       - name: Build APK
         run: >
           npx tauri android build --debug --apk --split-per-abi
-          --target aarch64,armv7,i686,x86_64
+          --target aarch64 armv7 i686 x86_64
 
       # Only arm64-v8a is uploaded: it covers essentially every Android phone
       # since 2017, and split APKs duplicate the full Kotlin/resources/dex
