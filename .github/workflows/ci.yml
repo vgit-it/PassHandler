@@ -193,5 +193,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/**/app-aarch64-debug.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/app-arm64-debug.apk
           if-no-files-found: error
