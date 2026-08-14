@@ -30,11 +30,24 @@ function showFatalError(error: unknown): void {
   root!.appendChild(pre);
 }
 
-// Covers a rejected promise during startup that nothing else is awaiting.
-// Guarded on the root being empty so it never overwrites an app that mounted
-// fine and hit an unrelated async error later.
+// Two listeners, for the two shapes an escaped error can take. Both are
+// guarded on the root being empty so neither ever overwrites an app that
+// mounted fine and hit an unrelated error later — this is only for a
+// failure severe enough that nothing was ever painted.
+//
+// unhandledrejection: a rejected promise during startup that nothing is
+// awaiting (e.g. an IPC call fired from an effect without a .catch).
 window.addEventListener('unhandledrejection', (event) => {
   if (root!.childElementCount === 0) showFatalError(event.reason);
+});
+// error: a plain synchronous throw that happens outside the try block below
+// — inside a callback, a timer, an event handler — anything not on the
+// initial call stack that try/catch can see. The try/catch below and the
+// ErrorBoundary around <App/> both only see errors on paths that lead back
+// to this module's own synchronous execution or to React's render; this is
+// the net under both of those.
+window.addEventListener('error', (event) => {
+  if (root!.childElementCount === 0) showFatalError(event.error ?? event.message);
 });
 
 try {
