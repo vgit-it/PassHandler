@@ -172,11 +172,26 @@ jobs:
       # and the Rust JNI layer compile needs no signing secrets. No OAuth client
       # IDs are present either: .env is gitignored, and the app is built to run
       # local-only when it is absent, so that path is exercised here too.
+      #
+      # --target still lists all four architectures, so this still proves the
+      # Rust JNI layer compiles for each of them — that coverage does not
+      # change. --split-per-abi only changes how the result is packaged: four
+      # single-architecture APKs instead of one universal APK carrying all
+      # four. A debug build keeps full symbols (deliberately — see
+      # docs/DISTRIBUTION.md), so this is still not what release.yml produces,
+      # but it is what someone testing a PR actually needs to install on one
+      # phone rather than a ~600 MB download of every architecture at once.
       - name: Build APK
-        run: npx tauri android build --debug --apk
+        run: >
+          npx tauri android build --debug --apk --split-per-abi
+          --target aarch64 armv7 i686 x86_64
 
+      # Only arm64-v8a is uploaded: it covers essentially every Android phone
+      # since 2017, and split APKs duplicate the full Kotlin/resources/dex
+      # payload per architecture, so uploading all four would be larger in
+      # total than the universal APK this replaced.
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/app-arm64-debug.apk
           if-no-files-found: error
