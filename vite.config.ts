@@ -4,9 +4,26 @@ import { fileURLToPath, URL } from 'node:url';
 
 const host = process.env.TAURI_DEV_HOST;
 
+// Vite tags the built entry script and stylesheet `crossorigin` by default,
+// which is meant for genuinely cross-origin CDN deployments. Nothing here
+// ever is: Tauri serves index.html and its assets from the same custom-scheme
+// origin, always. The attribute only adds a CORS check to a same-origin
+// request, and Android's WebView is the platform most likely to handle that
+// check differently for a non-http(s) scheme — an unforced failure mode with
+// no upside, so it is stripped from the built HTML.
+function stripCrossorigin() {
+  return {
+    name: 'strip-crossorigin',
+    apply: 'build' as const,
+    transformIndexHtml(html: string) {
+      return html.replace(/\s+crossorigin(="[^"]*")?/g, '');
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), stripCrossorigin()],
 
   resolve: {
     alias: {

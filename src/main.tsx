@@ -40,15 +40,34 @@ function showFatalError(error: unknown): void {
 window.addEventListener('unhandledrejection', (event) => {
   if (root!.childElementCount === 0) showFatalError(event.reason);
 });
-// error: a plain synchronous throw that happens outside the try block below
-// — inside a callback, a timer, an event handler — anything not on the
-// initial call stack that try/catch can see. The try/catch below and the
-// ErrorBoundary around <App/> both only see errors on paths that lead back
-// to this module's own synchronous execution or to React's render; this is
-// the net under both of those.
-window.addEventListener('error', (event) => {
-  if (root!.childElementCount === 0) showFatalError(event.error ?? event.message);
-});
+// error: covers two different things, both requiring the capture phase
+// (the third `true` argument) rather than the default bubble phase:
+//
+// - A plain synchronous throw outside the try block below — a callback, a
+//   timer, an event handler. try/catch and the ErrorBoundary around <App/>
+//   only see errors on paths that lead back to this module's own execution
+//   or to React's render; this is the net under both.
+// - A resource that failed to load — the <script> or <link> tag for the
+//   built bundle itself getting a 404, or blocked outright. That fires an
+//   `error` event on the element, and per spec that event does not bubble,
+//   so a listener on `window` only ever sees it during the capture phase.
+//   This is the one that matters most: if the bundle never loaded, none of
+//   the JS above — including every other handler in this file — ever runs,
+//   and the previous version of this file had no way to catch it at all.
+window.addEventListener(
+  'error',
+  (event) => {
+    if (root!.childElementCount !== 0) return;
+    const target = event.target;
+    if (target instanceof HTMLScriptElement || target instanceof HTMLLinkElement) {
+      const url = target instanceof HTMLScriptElement ? target.src : target.href;
+      showFatalError(new Error(`Failed to load ${target.tagName.toLowerCase()}: ${url}`));
+    } else {
+      showFatalError(event.error ?? event.message);
+    }
+  },
+  true,
+);
 
 try {
   // Wired up before anything can try to open a vault: without it every KDBX4
