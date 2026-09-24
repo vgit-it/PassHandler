@@ -71,6 +71,7 @@ export function VaultFrame({
   wallBackground = true,
   radialWall = false,
   transparentBezel = false,
+  bare = false,
 }: {
   children: ReactNode;
   /** `false` gives this frame a normal 8px top margin instead of sitting
@@ -123,6 +124,14 @@ export function VaultFrame({
    * bezel purely by being darker — no separate bezel fill is needed to
    * sell that contrast. */
   transparentBezel?: boolean;
+  /** Keeps the frame's layout (margins, bezel padding, rounded clip) but
+   * paints none of it: no bezel fill, no outer shadow, no hairline, no inset
+   * recess. For `Unlock.tsx`'s exiting echo, which sits exactly over
+   * `VaultScreen`'s own, identical frame while the unlock plays out: drawing
+   * a second copy there doubled the frame's shadow, and an opaque one hid
+   * the vault the doors are opening onto. Only the echo's own contents (the
+   * fading login panel) stay visible. */
+  bare?: boolean;
 }) {
   return (
     <div
@@ -137,17 +146,19 @@ export function VaultFrame({
       // a much smaller negative spread (-2 vs -10, since a small even glow
       // doesn't need to be pulled in from as far out as a long directional
       // one did), and lower opacity (.7 vs .92).
-      className={`relative mx-2 mb-2 min-h-0 flex-1 overflow-hidden rounded-vault-frame shadow-[0_0_24px_-2px_rgba(0,0,0,.7)] ${
-        transparentBezel ? '' : 'bg-vault-frame'
-      } ${flushTop ? '' : 'mt-2'}`}
+      className={`relative mx-2 mb-2 min-h-0 flex-1 overflow-hidden rounded-vault-frame ${
+        bare ? '' : 'shadow-[0_0_24px_-2px_rgba(0,0,0,.7)]'
+      } ${transparentBezel || bare ? '' : 'bg-vault-frame'} ${flushTop ? '' : 'mt-2'}`}
       style={{ padding: 'var(--vault-bezel)' }}
     >
       {/* The frame's own inner hairline (spec's `.vault::after`) — a subtle
           ring 4px in from the bezel's outer edge, purely decorative. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-1 rounded-[13px] border border-white/[.03]"
-      />
+      {!bare && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-1 rounded-[13px] border border-white/[.03]"
+        />
+      )}
       {/* No corner bolts any more — the Figma home-screen design's own
           frame outline (`Container_Outline`, node 103:327) is a plain
           even-thickness border with no rivet ornament, unlike the spec's
@@ -177,9 +188,9 @@ export function VaultFrame({
           as recessed on every side, since the tab channel/bottom bezel
           border it too, not just the top). */}
       <div
-        className={`relative flex h-full flex-col overflow-hidden rounded-vault-inner shadow-[inset_0_0_0_1px_rgba(0,0,0,.6),inset_0_0_18px_rgba(0,0,0,.55)] ${
-          wallBackground ? 'bg-vault-wall' : ''
-        }`}
+        className={`relative flex h-full flex-col overflow-hidden rounded-vault-inner ${
+          bare ? '' : 'shadow-[inset_0_0_0_1px_rgba(0,0,0,.6),inset_0_0_18px_rgba(0,0,0,.55)]'
+        } ${wallBackground && !bare ? 'bg-vault-wall' : ''}`}
         // A `radial-gradient()` here rather than a Tailwind arbitrary-value
         // class — the comma-heavy `ellipse at center, rgba(...), rgba(...)`
         // syntax is unwieldy to escape into a class name, and this
@@ -188,7 +199,7 @@ export function VaultFrame({
         // are fully opaque), so the two coexist harmlessly when both are
         // set — no need to make them mutually exclusive.
         style={
-          wallBackground && radialWall ? { backgroundImage: VAULT_WALL_RADIAL_GRADIENT } : undefined
+          wallBackground && radialWall && !bare ? { backgroundImage: VAULT_WALL_RADIAL_GRADIENT } : undefined
         }
       >
         {children}

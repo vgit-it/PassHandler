@@ -547,12 +547,23 @@ Spec §5.1 has the choreography, timeline and when-it-plays table. What's built:
 - **Android** — `MainActivity.kt` (`src-tauri/android-ime/`): `setFillLaunchFlag` sets the flag
   on every unlock poll and deletes it on success, on the poll timeout, and when an ordinary
   launch cancels a pending wait. See `MANUAL-FILL-DESIGN.md`'s "Launch flag for the web side".
+- **`Unlock.tsx` / `VaultFrame.tsx`** — the exiting Unlock echo (`App.tsx`'s `lingeringUnlock`,
+  mounted over `VaultScreen` for `UNLOCK_SEQUENCE_MS`) is transparent below its top bar, and draws
+  its frame `bare` (VaultFrame's new prop: layout only, no bezel, shadow or rings). **Don't give
+  the exiting echo's root a background again**: it's an opaque full-screen layer above the vault
+  for the entire sequence, so the doors open onto its empty frame and the whole reveal plays out
+  of sight. That shipped once — the first device build showed no reveal at all — because the
+  reveal had only been checked on a page without the Unlock screen and doors layered over it.
 
-Verified in Chromium with a temporary harness page (the real hook, cards built from the Android
-recipe), pausing the animations at chosen timestamps: only the seven on-screen rows animated, at
-540ms + 30ms steps, with the four off-screen rows untouched; mid-cascade frames settle top to
-bottom under a dimmed interior; a `keydown` mid-reveal finished everything at once, removed the
-light layer, and left no transform or opacity behind. The harness was deleted afterwards.
-**Not verified:** the Kotlin (no Android toolchain here — balance-checked and synced only) and
-the IME path end to end, which needs a real device: unlock once from the launcher (reveal
-plays) and once from the IME's "Unlock Vault" link (it doesn't).
+
+Verified in Chromium with a temporary harness running the real `App` (Unlock screen, doors,
+`VaultScreen`) on an in-memory fake `Platform`, the sequence slowed 10×, and the doors hidden
+with the animations frozen at chosen moments: before the fix, the vault was mounted with every row
+in the DOM but only the echo's empty frame was visible; after it, the rows show mid-cascade
+under the dimmed interior, and the frame just before the echo is removed matches the one right
+after it (no doubled frame shadow, no jump in the header). Also checked with the hook alone: only
+on-screen rows animate, and a `keydown` mid-reveal finishes everything with nothing left behind.
+**Anything that plays during the unlock sequence must be checked with those real layers stacked
+together, not in isolation.** Not verified: the Kotlin (no Android toolchain here — balance-checked
+and synced only) and the phone itself — unlock once from the launcher (reveal plays) and once
+from the IME's "Unlock Vault" link (it doesn't).

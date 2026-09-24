@@ -238,6 +238,11 @@ export function UnlockScreen({
   // own Android Lock/Settings buttons (`VaultScreen.tsx`), since both came
   // from the same Figma design system and are meant to read as the exact
   // same control before and after the reveal, not two similar-looking ones.
+  // `VaultScreen.tsx`'s own root-wrapper background, matched exactly — see
+  // the root element's doc below for where this applies and where it
+  // deliberately doesn't.
+  const screenBackground = platform.isAndroid ? 'bg-[#292c2f]' : 'bg-vault-chrome';
+
   const headerButtonClass =
     'flex h-11 w-11 items-center justify-center rounded-[5px] border border-[#565656] bg-gradient-to-b from-[#3f454a] to-[#32373d] shadow-[0_0_4.3px_rgba(0,0,0,.25)]';
 
@@ -291,9 +296,20 @@ export function UnlockScreen({
     // (`#070e19`) — a visibly different, bluer dark than Home's own
     // background, a seam that only ever showed on the lock screen because
     // nothing here painted an explicit background of its own before.
+    //
+    // Except for the `exiting` echo: it sits over the already-mounted
+    // `VaultScreen` for the whole unlock sequence, and the doors must open
+    // onto the real vault — and its unlock reveal
+    // (`docs/vault-visual-language-spec.md` §5.1) — not onto this screen's
+    // empty background. So while exiting, the root is transparent (the
+    // vault underneath has the identical background, so nothing else
+    // changes), the frame is drawn `bare`, and only the top bar keeps a fill
+    // of its own, to keep covering `VaultHeaderBar`'s hand-off underneath.
+    // Don't give the exiting root a background again: it hides the whole
+    // reveal, which then only ever plays out of sight.
     <div
       ref={rootRef}
-      className={`absolute inset-0 flex flex-col ${platform.isAndroid ? 'bg-[#292c2f]' : 'bg-vault-chrome'}`}
+      className={`absolute inset-0 flex flex-col ${exiting ? '' : screenBackground}`}
     >
       {/* The top bar — new, per the Figma lock-screen reference (node
           144:254): a persistent "Vault" wordmark, visible even while
@@ -314,7 +330,7 @@ export function UnlockScreen({
           across both platforms left this screen's container a measurable
           10px off from Home's. */}
       <div
-        className="flex flex-shrink-0 items-center justify-between px-5"
+        className={`flex flex-shrink-0 items-center justify-between px-5 ${exiting ? screenBackground : ''}`}
         style={{ height: platform.isAndroid ? UNLOCK_TOP_BAR_HEIGHT_PX_ANDROID : UNLOCK_TOP_BAR_HEIGHT_PX }}
       >
         <button
@@ -357,7 +373,7 @@ export function UnlockScreen({
           `z-50` root, which happened to look right only because this
           frame's own fill is transparent — genuinely correct now,
           not just accidentally invisible. */}
-      <VaultFrame flushTop={false} wallBackground={false}>
+      <VaultFrame flushTop={false} wallBackground={false} bare={exiting}>
         <div className="flex flex-1 items-center justify-center overflow-y-auto p-4">
           {/* The floating login panel — "a control panel mounted on the
               door" (per request): its own solid surface, ported from the
