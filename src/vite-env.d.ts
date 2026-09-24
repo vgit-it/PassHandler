@@ -10,6 +10,12 @@ interface ImportMetaEnv {
    */
   readonly VITE_GOOGLE_CLIENT_ID_DESKTOP?: string;
   readonly VITE_GOOGLE_CLIENT_ID_ANDROID?: string;
+  /**
+   * Google issues this for the desktop client only — never for Android — and
+   * its token endpoint requires it be sent despite the desktop client being a
+   * PKCE public client. See `src-tauri/src/oauth.rs`'s module docs.
+   */
+  readonly VITE_GOOGLE_CLIENT_SECRET_DESKTOP?: string;
 }
 
 interface ImportMeta {

@@ -1,0 +1,50 @@
+<!--
+  Hand-authored <application> children that `tauri android init` has no way
+  to generate — it only knows about MainActivity and Tauri's own plugins.
+  `scripts/sync-android-ime.js` inserts each block (by its own comment
+  marker below) into the freshly-generated
+  `src-tauri/gen/android/app/src/main/AndroidManifest.xml`, right before
+  `</application>`, skipping any block whose marker is already present so a
+  re-run is a no-op. See that script's own doc for why this exists at all.
+
+  NOT included here: the Google Drive OAuth redirect intent-filter
+  (`docs/google-oauth-setup.md`) — that block's `android:scheme` is derived
+  from each developer's own OAuth client ID, so it can't be a fixed value
+  this file bakes in. It stays a manual step, exactly as that doc already
+  documents; nothing about this file changes that.
+-->
+<fragments>
+
+  <!-- sync-marker: vault-ime-preview-activity -->
+  <!-- Debug-only preview harness for the manual-fill keyboard's view
+       code — see VaultImePreviewActivity's own doc. Not meant
+       for a release build's launcher; exported="false" so it's only
+       reachable from this device/adb, not other apps. Launch it via
+       Android Studio's Run/Debug config ("Launch: Specified
+       Activity" → this class) or
+       `adb shell am start -n com.passhandler.app/.VaultImePreviewActivity`. -->
+  <activity
+      android:name=".VaultImePreviewActivity"
+      android:label="Vault IME preview"
+      android:theme="@style/Theme.vault"
+      android:exported="false" />
+
+  <!-- sync-marker: vault-ime-service -->
+  <!-- Manual fill's trigger: a custom keyboard, not the Autofill
+       framework — see docs/MANUAL-FILL-DESIGN.md. BIND_INPUT_METHOD
+       restricts binding to the system itself, the standard, required
+       guard for any IME service. -->
+  <service
+      android:name=".VaultIme"
+      android:permission="android.permission.BIND_INPUT_METHOD"
+      android:exported="true"
+      android:label="Vault quick fill">
+      <intent-filter>
+          <action android:name="android.view.InputMethod" />
+      </intent-filter>
+      <meta-data
+          android:name="android.view.im"
+          android:resource="@xml/method" />
+  </service>
+
+</fragments>

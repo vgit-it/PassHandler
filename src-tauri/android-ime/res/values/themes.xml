@@ -1,0 +1,13 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.vault" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Without this, the native window background fell back to the
+             parent theme's own day/night default (light in day mode, a
+             generic Material dark grey in night mode) instead of this
+             app's actual background — visible on cold start before the
+             WebView paints, and in any edge-to-edge inset area the WebView
+             doesn't cover. See `colors.xml`'s own doc on `home_background`
+             for the full reasoning, including why this isn't `ink_950`. -->
+        <item name="android:windowBackground">@color/home_background</item>
+    </style>
+</resources>

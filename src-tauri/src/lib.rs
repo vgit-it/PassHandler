@@ -1,4 +1,4 @@
-//! Pass Handler — native layer.
+//! Vault — native layer.
 //!
 //! Everything here is plumbing. No vault is parsed, no entry is read and no
 //! password is decrypted on this side of the IPC boundary: the Rust layer moves
@@ -16,6 +16,8 @@ use tauri::{AppHandle, Manager, Runtime};
 
 mod drive;
 mod error;
+mod favicon;
+mod fill;
 mod oauth;
 mod prefs;
 mod vault_file;
@@ -39,7 +41,7 @@ fn build_http_client() -> reqwest::Client {
         // and a hung network surfaces as "Offline" rather than a spinner.
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(60))
-        .user_agent(concat!("PassHandler/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("Vault/", env!("CARGO_PKG_VERSION")))
         // No redirect following: every endpoint used here is a documented,
         // stable Google URL, and a redirect would be a reason to stop rather
         // than to follow.
@@ -54,7 +56,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_passhandler::init());
+        .plugin(tauri_plugin_vault::init());
 
     // A second instance would race the first over the same vault file and the
     // same rolling backup. Focus the window that is already open instead.
@@ -68,6 +70,9 @@ pub fn run() {
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_biometric::init());
 
+    #[cfg(target_os = "windows")]
+    let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
+
     builder
         .manage(Http(build_http_client()))
         .manage(vault_file::BackupState::default())
@@ -79,20 +84,27 @@ pub fn run() {
             vault_file::vault_restore_backup,
             vault_file::vault_backup_exists,
             vault_file::vault_delete_local,
+            vault_file::vault_export,
             prefs::settings_load,
             prefs::settings_save,
             prefs::sync_state_load,
             prefs::sync_state_save,
+            fill::manual_fill_hotkey_status,
+            fill::set_manual_fill_hotkey,
             oauth::drive_configure,
             oauth::drive_status,
             oauth::drive_connect,
             oauth::drive_complete_auth,
             oauth::drive_disconnect,
             drive::drive_find_file,
+            drive::drive_find_any_file,
+            drive::drive_list_files,
+            drive::drive_account_email,
             drive::drive_get_metadata,
             drive::drive_download,
             drive::drive_create,
             drive::drive_update,
+            favicon::fetch_favicon,
         ])
         .setup(|app| {
             // Devtools are a debug-build affordance only. A released binary
@@ -106,11 +118,22 @@ pub fn run() {
             #[cfg(desktop)]
             install_desktop_lock_triggers(app.handle());
 
+            // `fill::install` compiles and runs on every target (see that
+            // module's own docs) — non-Windows just gets the managed
+            // `ManualFillState` with nothing ever registered, so the
+            // status/set commands below have consistent state to read
+            // instead of panicking on a missing managed value.
+            fill::install(app.handle());
+
+            // Loaded once, here, rather than per-command — see `FaviconCache`'s
+            // docs for why a favicon lookup must never touch disk on its own.
+            app.manage(favicon::FaviconCache::load(app.handle()));
+
             let _ = app;
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Pass Handler");
+        .expect("error while running Vault");
 }
 
 /// Lock the vault when the window closes.

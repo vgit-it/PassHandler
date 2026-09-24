@@ -15,11 +15,11 @@ is set up, so do the desktop half first.
 ## 1. Create the project and consent screen
 
 1. Go to <https://console.cloud.google.com/> and create a project named
-   **`pass handler`**.
+   **`vault`**.
 2. Enable the **Google Drive API** under *APIs & Services → Library*.
 3. Configure the **OAuth consent screen**:
    - User type: **External**
-   - App name: `Pass Handler`
+   - App name: `Vault`
    - Support and developer contact: your own email
 4. On the **Scopes** step, add exactly one scope:
 
@@ -54,17 +54,22 @@ non-sensitive `drive.appdata` scope.
 *APIs & Services → Credentials → Create credentials → OAuth client ID*
 
 - Application type: **Desktop app**
-- Name: `Pass Handler — Desktop`
+- Name: `Vault — Desktop`
 
-Copy the client ID into `.env`:
+Copy the client ID **and** the client secret shown on the same page into `.env`:
 
 ```dotenv
 VITE_GOOGLE_CLIENT_ID_DESKTOP=123456789-abcdefg.apps.googleusercontent.com
+VITE_GOOGLE_CLIENT_SECRET_DESKTOP=GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-No client secret is used. Pass Handler is a public client and authenticates with
-PKCE — a secret compiled into a binary you hand to three people is not a secret,
-and Google's desktop client type expects exactly this.
+Vault still authenticates with PKCE and treats itself as a public
+client — that part hasn't changed. But Google issues a client secret for this
+client type regardless, and its token endpoint rejects the request without one
+(`invalid_request: client_secret is missing`), so it has to be sent. It isn't
+meaningfully more secret than the client ID above it — a value compiled into a
+binary you hand to three people is not a secret either way — it's just plumbing
+Google insists on.
 
 The app listens on an ephemeral loopback port and opens consent in your **system
 browser**, never in the app's own webview.
@@ -143,7 +148,7 @@ and survives ordinary rebuilds. If you ever delete `gen/` and re-run
 ## 4. Build
 
 ```bash
-cp .env.example .env    # then fill in both client IDs
+cp .env.example .env    # then fill in the client ID(s) and the desktop client secret
 npm run tauri dev       # Windows
 npm run tauri android dev
 ```
@@ -158,7 +163,7 @@ points it at their own Google Cloud project.
 
 **"Google hasn't verified this app."** Expected, and permanent. Verification
 review exists for sensitive scopes; `drive.appdata` is not one, so there is
-nothing to submit. Choose *Advanced* → *Go to Pass Handler*. Onboarding says
+nothing to submit. Choose *Advanced* → *Go to Vault*. Onboarding says
 this up front so it does not read as a failure.
 
 **A 100-user cap.** Unverified apps are limited to 100 users. For a vault used

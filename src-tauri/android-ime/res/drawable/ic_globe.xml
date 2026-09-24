@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A globe — Login's representative icon (per request), transcribed 1:1 from
+  the web app's own `GlobeIcon` (`src/ui/components/icons.tsx`): a circle,
+  an equator line, and one meridian lens shape, all at the shared 24×24,
+  1.8px-stroke grid every icon in that file uses. Used by
+  `VaultKeyboardView.buildAvatar` in place of a Login entry's first-
+  letter initial, matching what the web app's own entry list now shows for
+  a Login with no fetched favicon (`EntryList.tsx`'s `EntrySiteIcon` — this
+  used to cite a separate `EntryPeg.tsx`, which was deleted and folded into
+  `EntrySiteIcon` directly; stale reference fixed as of the IME
+  visual-parity doc pass, see docs/ime-visual-parity-plan.md) — the IME has
+  no network access at all, so it never fetches a favicon in the first
+  place and this is the only thing a Login result/detail row ever shows.
+
+  Unlike `ic_lock.xml`, the baked-in `#E2E6EA` stroke color below is only a
+  placeholder, not the real one: every call site applies its own
+  `setColorFilter` at render time (`buildAvatar` picks one of eight hues
+  per entry, hashed from its title — see `pegColorFor`/`PEG_COLORS` — the
+  same eight-color palette and "stable hash, never random per render" rule
+  `EntryList.tsx`'s own `pegColor` uses, as of the visual-parity
+  implementation pass), since one fixed tone can't work across several
+  different circle background colors the way it can for the top bar's
+  single always-the-same-tone Lock chip.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M2 12A10 10 0 1 0 22 12A10 10 0 1 0 2 12"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M2 12h20"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

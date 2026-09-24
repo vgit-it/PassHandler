@@ -85,7 +85,7 @@ jobs:
   # The shipping desktop target. This is the only thing that compiles the
   # Credential Manager and Windows Hello paths against the MSVC toolchain —
   # `IUserConsentVerifierInterop` and the raw-HWND hand-off in
-  # plugins/tauri-plugin-passhandler/src/desktop.rs.
+  # plugins/tauri-plugin-vault/src/desktop.rs.
   windows:
     name: Build (Windows)
     runs-on: windows-latest
@@ -124,7 +124,7 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error
 
-  # The first compiler to ever see PassHandlerPlugin.kt. Keystore-backed
+  # The first compiler to ever see VaultPlugin.kt. Keystore-backed
   # EncryptedSharedPreferences, BiometricPrompt, FLAG_SECURE, the sensitive
   # clipboard flag and the OAuth redirect handler are all written but have
   # never been built.
@@ -167,6 +167,16 @@ jobs:
       # tauri.conf.json.
       - name: Initialise the Android project
         run: npx tauri android init
+
+      # Every hand-authored Android file (the IME, this app's MainActivity,
+      # its theme resources — see scripts/sync-android-ime.js's own doc) is
+      # tracked under src-tauri/android-ime/ and has no way to reach
+      # gen/android/ on its own: `android init` above generates only a stub
+      # MainActivity and Tauri's own plugins. Without this step the build
+      # below fails — VaultIme.kt references MainActivity members the stub
+      # doesn't have.
+      - name: Sync the Android IME source
+        run: npm run android:sync-ime
 
       # --debug uses the auto-generated debug keystore, so proving the Kotlin
       # and the Rust JNI layer compile needs no signing secrets. No OAuth client

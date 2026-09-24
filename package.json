@@ -1,9 +1,9 @@
 {
-  "name": "pass-handler",
+  "name": "vault",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Pass Handler — a personal KeePass-compatible password manager for Windows and Android",
+  "description": "Vault — a personal KeePass-compatible password manager for Windows and Android",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.json && vite build",
@@ -12,9 +12,14 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "android:sync-ime": "node scripts/sync-android-ime.js"
   },
   "dependencies": {
+    "@fontsource/anaheim": "^5.3.0",
+    "@fontsource/audiowide": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-biometric": "^2.3.2",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A plain padlock — the design system's generic "Lock" utility glyph
+  (`LockIcon` in `src/ui/components/icons.tsx`), transcribed 1:1 from its
+  own 24×24, 1.8px-stroke path data. `viewportWidth/Height` match
+  `LockIcon`'s own 24×24 viewBox 1:1, so `pathData` below is copied, not
+  rescaled.
+
+  STALE REFERENCE, fixed as of the visual-parity doc pass (see
+  docs/ime-visual-parity-plan.md): this used to say "Used for the IME
+  keypad's Lock key" — that key moved to the top bar entirely
+  (`buildTopBarLockButton`, `docs/ime-ux-redesign-proposal.md`'s own
+  "Proposed layout"/"Status: built"), so there is no keypad Lock key any
+  more for this to describe; the top bar is this drawable's only current
+  call site (`R.drawable.ic_lock` in `VaultKeyboardView.kt`).
+
+  The baked-in stroke color below is a placeholder only, same reasoning as
+  `ic_globe.xml`'s own doc: the top bar tints it `setColorFilter(SUCCESS)`
+  at render time, not this literal. Kept in sync by hand anyway, for
+  consistency rather than correctness — currently `#D6E4EF`
+  (`FOREGROUND`'s real value as of the visual-parity pass; was `#E2E6EA`,
+  the never-fully-applied vault-fg CSS-token attempt before that, and
+  `#B8CEDF` before that: three palettes deep, all superseded). The CSS
+  token's own usual leading pair of hyphens is spelled out as a word here,
+  never as the two literal characters back to back: an XML comment may not
+  contain that pair anywhere in its body, and an earlier revision of this
+  exact paragraph broke the real Gradle resource build by doing exactly
+  that — a real, compiler-caught bug no brace/paren balance check
+  (this project's own usual substitute for one) could ever have caught.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M6 10H18A2 2 0 0 1 20 12V18A2 2 0 0 1 18 20H6A2 2 0 0 1 4 18V12A2 2 0 0 1 6 10Z"
+        android:strokeColor="#D6E4EF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M8 10V7a4 4 0 1 1 8 0v3"
+        android:strokeColor="#D6E4EF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

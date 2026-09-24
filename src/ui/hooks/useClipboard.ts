@@ -11,14 +11,24 @@ export interface ClipboardCountdown {
 /**
  * Copy-with-auto-clear.
  *
- * Two rules make this correct rather than merely convenient:
+ * Two mechanisms run side by side, because no single one is reliable on every
+ * platform:
  *
- * 1. On expiry, the clipboard is cleared **only if it still holds what we
- *    wrote**. Blindly clearing would destroy whatever the user copied in the
- *    meantime, which is their data and none of our business.
- * 2. Locking clears immediately. The whole point of locking is that nothing is
- *    left lying around, and a password sitting in the clipboard is exactly
- *    that.
+ * 1. This hook's own interval drives `clipboard.clearIfMatches` on expiry,
+ *    clearing **only if the clipboard still holds what we wrote** — anything
+ *    the user copied since is theirs. This is the sole mechanism on desktop,
+ *    where it is reliable.
+ * 2. `clipboard.scheduleClear`, called once up front, is a native, timer-free
+ *    guarantee for Android: the OS refuses clipboard reads from a
+ *    backgrounded app (so rule 1's compare-then-clear silently does nothing
+ *    there) and throttles JS intervals once the page is hidden (so even the
+ *    interval above may never fire). It clears unconditionally instead,
+ *    accepting the small risk of clearing something else copied in the same
+ *    window — a no-op on desktop, where rule 1 already covers it.
+ *
+ * Locking clears immediately either way. The whole point of locking is that
+ * nothing is left lying around, and a password sitting in the clipboard is
+ * exactly that.
  */
 export function useClipboard(clipboard: Clipboard, seconds: number) {
   const [countdown, setCountdown] = useState<ClipboardCountdown | null>(null);
@@ -41,6 +51,13 @@ export function useClipboard(clipboard: Clipboard, seconds: number) {
 
     const value = copiedRef.current;
     copiedRef.current = null;
+
+    // Cancel any pending native clear regardless of `value`: this runs on
+    // every unmount (see the effect below), not just after an actual copy,
+    // and a stale scheduled clear left behind would fire later and wipe
+    // whatever the clipboard holds by then.
+    void clipboard.cancelScheduledClear().catch(() => {});
+
     if (value === null) return;
 
     try {
@@ -63,6 +80,13 @@ export function useClipboard(clipboard: Clipboard, seconds: number) {
 
       copiedRef.current = value;
       stopTimer();
+
+      // The real guarantee on Android — runs natively, so it still fires if
+      // the app is backgrounded before the JS interval below ever gets a
+      // chance to. A no-op on desktop, where the interval's own
+      // `clearIfMatches` call is already reliable. Best-effort: nothing here
+      // depends on it resolving before the function returns.
+      void clipboard.scheduleClear(seconds).catch(() => {});
 
       const expiresAt = Date.now() + seconds * 1000;
       setCountdown({ label, secondsLeft: seconds });

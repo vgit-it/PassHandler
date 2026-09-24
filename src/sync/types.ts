@@ -80,6 +80,25 @@ export interface DriveFileMeta {
 export interface DriveClient {
   isConnected(): Promise<boolean>;
   findFile(vaultId: string): Promise<DriveFileMeta | null>;
+  /**
+   * Locate the vault file without knowing its vault ID.
+   *
+   * Only for onboarding's "connect to an existing vault" path, where nothing
+   * has been decrypted yet so the vault ID — which lives inside the file —
+   * is not available. Every other lookup uses `findFile`.
+   */
+  findAny(): Promise<DriveFileMeta | null>;
+  /**
+   * Every vault file sitting in `appDataFolder`, newest first.
+   *
+   * For the "restore vault" screen (`docs/RESTORE-VAULT-DESIGN.md`) only —
+   * it exists so the user can see and choose among what's actually present,
+   * rather than the app inferring "the latest" or grabbing an arbitrary
+   * first match the way `findAny` does for onboarding. Ordinarily returns
+   * at most one entry, since this app only ever writes one file per vault
+   * it knows about.
+   */
+  listFiles(): Promise<DriveFileMeta[]>;
   getMetadata(fileId: string): Promise<DriveFileMeta>;
   download(fileId: string): Promise<ArrayBuffer>;
   create(vaultId: string, data: ArrayBuffer): Promise<DriveFileMeta>;

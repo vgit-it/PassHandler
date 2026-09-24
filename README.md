@@ -1,4 +1,4 @@
-# Pass Handler
+# Vault
 
 A personal password manager for **Windows and Android**, using the KeePass
 `.kdbx` format and syncing the encrypted vault through Google Drive.
@@ -22,6 +22,9 @@ independent vault. No shared accounts, no user management, no server of ours.
 - **Nothing else on the network.** No telemetry, no analytics, no remote fonts
   or assets, no update check. The webview's Content Security Policy has no
   remote origins in it at all.
+- **Fifteen entry types, not one generic form.** Login, Card, Bank Account,
+  Identity Doc, WiFi, SSH/API Key, and more, grouped into six categories, each
+  with fields that fit the type — plus free-form custom fields on any entry.
 
 Optimised ruthlessly for the thing it actually does dozens of times a day:
 **search → copy → paste**.
@@ -29,9 +32,9 @@ Optimised ruthlessly for the thing it actually does dozens of times a day:
 ## What it is not
 
 No browser extension or autofill. No Android Autofill Framework. No macOS or
-iOS. No attachments, TOTP codes, folders, tags, custom fields, key files, or
-hardware keys. No import from other managers. No breach checking. No sync
-provider other than Google Drive.
+iOS. No attachments, TOTP codes, folders, tags, key files, or hardware keys.
+No import from other managers. No breach checking. No sync provider other
+than Google Drive.
 
 ---
 
@@ -114,9 +117,10 @@ is never deleted because the remote is missing.
 
 ## Status
 
-Every milestone in the specification is implemented.
+The app is feature-complete for the scope in **What it is** and **What it is
+not** above.
 
-CI builds both platforms on every push: the TypeScript layers with 43 tests, the
+CI builds both platforms on every push: the TypeScript layers with 180 tests, the
 Windows binary against MSVC into an NSIS installer and an MSI, and the Android
 APK including the Kotlin plugin. Everything in the repository compiles, links and
 packages. Pushing a `v*` tag builds release-profile installers and per-architecture

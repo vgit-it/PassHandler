@@ -16,12 +16,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use base64::Engine;
 use tauri::{AppHandle, Manager, Runtime};
+use tauri_plugin_vault::{ExportOutcome, ExportVaultRequest, VaultExt};
 
 use crate::error::{Error, Result};
 
 const VAULT_FILE: &str = "vault.kdbx";
 const BACKUP_FILE: &str = "vault.kdbx.bak";
 const TEMP_FILE: &str = "vault.kdbx.tmp";
+// "Vault.kdbx", not "Vault-vault.kdbx" — the old "PassHandler-vault.kdbx"
+// pattern needed "-vault" to say what the file was, since the app name
+// itself didn't; now that the app *is* named Vault, repeating the word would
+// just be redundant.
+const EXPORT_SUGGESTED_NAME: &str = "Vault.kdbx";
 
 /// One rolling backup per session, taken before the first write.
 ///
@@ -155,6 +161,28 @@ pub async fn vault_delete_local<R: Runtime>(app: AppHandle<R>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Save an out-of-band copy of the vault, entirely independent of Drive.
+///
+/// This never goes through the renderer's own base64 round-trip the way
+/// `vault_read`/`vault_write` do — there's no reason for the copy going out
+/// the door to pass through JS at all, so it doesn't.
+#[tauri::command]
+pub async fn vault_export<R: Runtime>(app: AppHandle<R>) -> Result<ExportOutcome> {
+    let bytes = fs::read(vault_path(&app)?)?;
+    let contents_b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        app.vault().export_vault(ExportVaultRequest {
+            contents_b64,
+            suggested_name: EXPORT_SUGGESTED_NAME.to_string(),
+        })
+    })
+    .await
+    .map_err(|_| Error::Internal)?
+    .map_err(Into::into)
 }
 
 #[cfg(test)]

@@ -1,3 +1,37 @@
+/* Inter (UI text) + JetBrains Mono (sensitive/structured values — masked and
+   revealed passwords, license keys, SSH fingerprints, 2FA codes, WiFi
+   passwords, IFSC/account numbers) per the design system's typography rules.
+   Self-hosted via @fontsource (bundled into the build, no runtime request)
+   rather than a Google Fonts @import — the app makes no network requests
+   beyond Drive sync (see the note in ui/components/icons.tsx), and the
+   Android IME must render fully offline. */
+/* `latin`-subset files only, not the full `400.css` etc. — those also bundle
+   Cyrillic/Greek/Vietnamese glyph sets that would ship in the app binary
+   with no user of them; the app's UI is English-only, and the fallback
+   stack in tailwind.config.js already covers any non-Latin text a user
+   stores (an entry title, a note) with the platform's own font. */
+/* Anaheim — the "Vault" app-title wordmark's own typeface, per the Figma
+   unlock-screen design. Deliberately not folded into the `sans` stack (see
+   `--font-title` below and `font-title` in tailwind.config.js): the title
+   is the only place this font should ever appear, so it gets its own named
+   token rather than becoming the app's default UI font. Only the SemiBold
+   weight is imported — the only weight the title actually uses. */
+@import '@fontsource/anaheim/latin-600.css';
+/* Audiowide — the small "Vault" wordmark next to the logo in the Android
+   home screen's own header, per the Figma home-screen design. A different
+   typeface from the Unlock screen's Anaheim title above (`--font-title`) —
+   this is a smaller, secondary nav-bar mark, not the app's hero title, so
+   it gets its own token (`--font-title-nav` below) rather than reusing or
+   replacing that one. Regular is the only weight Audiowide ships. */
+@import '@fontsource/audiowide/latin-400.css';
+@import '@fontsource/inter/latin-300.css';
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-700.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,6 +39,82 @@
 @layer base {
   :root {
     color-scheme: dark;
+
+    /* One-shot design knobs — change the value here and every use-site
+       picks it up, no hunting through components.
+       `--font-title`: the "Vault" wordmark's typeface (see the
+       `font-title` Tailwind utility and the `@import` above) — used only
+       on the unlock screen's title, nowhere else.
+       `--actionbutton-bg` / `--actionbutton-text`: the unlock screen's two
+       action buttons (submit arrow, biometric unlock) — see the
+       `actionbutton`/`actionbutton-foreground` Tailwind color tokens. */
+    --font-title: 'Anaheim', 'Segoe UI', 'Roboto', 'system-ui', sans-serif;
+    --font-title-nav: 'Audiowide', 'Segoe UI', 'Roboto', 'system-ui', sans-serif;
+    --actionbutton-bg: #2d6ba8;
+    --actionbutton-text: #d6e4ef;
+
+    /* Vault visual-language tokens (`docs/vault-visual-language-spec.md`,
+       `docs/vault-visual-overhaul-plan.md`) — the "physical vault" design
+       system (see the plan doc for which screens use it).
+       Dark-only, deliberately: `tailwind.config.js` already commits this
+       app to a single dark theme ("the PRD asks for dark by default and
+       specifies no light-mode behaviour"), so there is no light variant to
+       re-derive here, unlike the spec's own §2 note about re-deriving
+       (never inverting) a light ramp — that only applies once/if this app
+       ever grows a light theme.
+
+       Four flat surface steps, brightest at the top of the stack, plus the
+       edges/text/accent/geometry/motion tokens the spec's component
+       recipes (§4) and hard visual rules (§3) build on. Namespaced
+       `--vault-*`/`--edge-*` (and `--fg`/`--muted`/`--dim`/`--vault-accent`/
+       `--vault-ok`/`--vault-warn` distinctly from this app's existing
+       `ok`/`warn`/`bad`/`accent` Tailwind tokens, still used by every
+       screen this overhaul hasn't reached — Settings and the entry
+       editor) so the two systems can coexist file by
+       file during the migration without one silently repainting the
+       other's call sites. */
+    --vault-frame: #242931; /* the bezel */
+    --vault-chrome: #1a1e24; /* outside-plane bars */
+    --vault-wall: #0a0d11; /* interior back wall — darkest thing in the app */
+    --vault-rail: #131820; /* section rails, search shelf, tab panel */
+    --vault-shelf: #1f252d; /* entry platforms — brightest interior surface */
+
+    --edge-lip: rgba(255, 255, 255, 0.055); /* 1px top edge of a shelf — the only bevel in the app */
+    --edge-front: #0e1217; /* 4px front face of a shelf */
+    --hairline: #2a3039;
+
+    --vault-fg: #e2e6ea;
+    --vault-muted: #8b949e;
+    --vault-dim: #5f6871; /* counts/timestamps only — never body text a user must read, per spec §7 */
+
+    /* Used for exactly three things per spec §3.7: primary action, focus
+       ring, dial indicator. Never on text, never on a border, never as a
+       status color. */
+    --vault-accent: #6b9dc6;
+    --vault-ok: #6fbf8b;
+    --vault-warn: #c9963f;
+
+    --vault-bezel: 9px;
+    --vault-margin: 8px;
+    --vault-r-shelf: 0px; /* shelves are square — they span wall to wall */
+    --vault-r-inner: 9px;
+    --vault-r-frame: 16px;
+
+    --vault-snap: cubic-bezier(0.2, 0, 0, 1);
+    --vault-detent: cubic-bezier(0.34, 1.4, 0.64, 1);
+    /* The detail box's two curves (spec §4.6/§5). `arrive` (opening): fast
+       out of the card, long settle into place. `depart` (closing): eases
+       in AND out, so the box decelerates into the card's slot instead of
+       slamming into it at full speed the way a pure accelerate would. No
+       overshoot on either — a full-screen move can't carry the tab slug's
+       detent. */
+    --vault-arrive: cubic-bezier(0.25, 0.8, 0.25, 1);
+    --vault-depart: cubic-bezier(0.4, 0, 0.2, 1);
+    --vault-t-press: 70ms;
+    --vault-t-ui: 150ms;
+    --vault-t-box: 320ms; /* detail box open; read by ShelfOriginPanel.tsx at run time */
+    --vault-t-box-close: 240ms; /* detail box close — shorter, leaving is quicker */
+    --vault-t-door: 400ms;
   }
 
   html,
@@ -13,13 +123,60 @@
     height: 100%;
   }
 
+  /* On Android 15+ the window draws edge-to-edge by default, so without this
+     the status bar (clock, battery) and gesture nav bar sit on top of the
+     app's own controls instead of beside them. The background is left to
+     paint all the way to the physical edge — only the content box is inset —
+     so there is no visible seam, just safe room for the OS chrome.
+     `viewport-fit=cover` in index.html is what makes these env() values
+     non-zero; without it they would always resolve to 0. */
+  #root {
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+  }
+
   body {
-    @apply bg-ink-900 text-slate-200 antialiased;
+    /* ink-950, not ink-900 — the app's page background, one step darker
+       than before, per the Figma home-screen redesign. ink-900 is now the
+       reusable "surface" color (cards, panels sitting on top of the page)
+       instead — see `tailwind.config.js`'s `ink` scale doc. */
+    @apply bg-ink-950 text-slate-200 antialiased;
     /* The vault is not a document. Selecting and dragging its chrome around
        serves no purpose and makes the app feel like a web page. */
     -webkit-user-select: none;
     user-select: none;
     overscroll-behavior: none;
+  }
+
+  /* Android, whenever a real vault screen — locked or unlocked — is
+     showing (not loading/onboarding, which have no such seam to fix).
+     `#root`'s safe-area padding above leaves a gutter around the actual
+     content where THIS rule — body's own `ink-950` — is what actually
+     paints, since that padding sits outside `Unlock.tsx`'s/`VaultScreen.tsx`'s
+     own `#292c2f` wrapper, not inside it. That gutter used to be harmless
+     (nothing sat directly behind the status/nav bars to contrast against),
+     but this app's `targetSdk` is now 36
+     (`src-tauri/gen/android/app/build.gradle.kts`): on any device actually
+     running Android 15+, that alone forces edge-to-edge and makes
+     `Window.setStatusBarColor`/`setNavigationBarColor` outright no-ops
+     (see `MainActivity.kt`'s own doc, written before this was caught) — so
+     the status/nav bars are genuinely transparent now, with nothing native
+     left to paint behind them. This gutter is the only thing that still
+     can, which makes it load-bearing rather than cosmetic: without this
+     override the bars sit on visible `ink-950` (`#070e19`) instead of the
+     vault's own `#292c2f`, a clearly mismatched dark-navy sliver right at
+     the screen edge.
+     Was `.vault-home-gutter`, applied only while `VaultScreen` itself was
+     mounted — per request, both screens now share this exact background
+     (the Figma lock-screen reference's own root fill matches Home's
+     exactly), and the seam this fixes is just as real on the lock screen,
+     so `App.tsx` now owns adding/removing this class for the whole
+     `phase === 'locked' || phase === 'unlocked'` window instead of
+     `VaultScreen.tsx` doing it only for its own, narrower mount lifetime. */
+  body.vault-gutter {
+    background-color: #292c2f;
   }
 
   /* Anything the user might actually want to select or copy by hand. */
@@ -31,9 +188,27 @@
   }
 
   /* Keyboard focus must stay obvious — this app is driven by the keyboard on
-     Windows, where arrow keys and Enter do the real work. */
-  :focus-visible {
-    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-ink-900;
+     Windows, where arrow keys and Enter do the real work.
+
+     `:not([data-search-input])` — the vault search box (`EntryList.tsx`)
+     defines its own complete focus treatment (a subtle inset accent ring,
+     matching the reference prototype's own recipe) and never asked for
+     this global ring on top of it. Without the exclusion this rule's `ring`
+     utilities compose additively with that box-shadow rather than being
+     overridden by it — Tailwind's `ring`/`ring-offset` utilities and a
+     plain `shadow-[...]` both ultimately just set `box-shadow`, but via
+     separate `--tw-ring-shadow`/`--tw-shadow` custom properties that get
+     concatenated together, not two competing values where the later
+     cascade wins outright. Found via `getComputedStyle` on the focused
+     input in a real browser: its resolved `box-shadow` had FOUR layers —
+     this rule's own ink-accent ring-offset pair stacked in front of the
+     input's intended two-layer accent ring, reading as a much harsher,
+     brighter outline than designed. Every other focusable element in the
+     app (header buttons, entry rows, the tab bar) has no focus style of
+     its own, so this rule stays their only indicator — only the one
+     element that already handles its own focus needs to opt out. */
+  :focus-visible:not([data-search-input]) {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-ink-950;
   }
 
   ::-webkit-scrollbar {
@@ -42,23 +217,48 @@
   ::-webkit-scrollbar-thumb {
     @apply rounded-full bg-ink-500;
   }
+
+  /* A field row's reveal/copy buttons stay hidden until the row is hovered
+     or focused — but only on a device that actually has hover (a mouse).
+     Android has no hover state, so `(hover: hover)` never matches there and
+     the buttons fall back to always-visible, which is the only option that
+     works with a finger. */
+  @media (hover: hover) {
+    .field-row-action {
+      opacity: 0;
+      transition: opacity var(--ph-duration, 120ms) ease;
+    }
+    .field-row:hover .field-row-action,
+    .field-row:focus-within .field-row-action {
+      opacity: 1;
+    }
+  }
 }
 
 @layer components {
+  /* py-3, not py-2 — py-2 (8px) plus this app's own bumped text-sm (16px/22px
+     line-height, see tailwind.config.js's fontSize scale doc) computed to
+     ~38px, under the ≥44px touch target vault-visual-language-spec.md §7
+     commits this app to app-wide. 22px line-height + 24px padding (py-3,
+     12px each side) = 46px, clearing the floor with a couple px to spare —
+     see docs/UI-UX-REVIEW.md's top findings #1 for the audit that found
+     this. Both `.field` and `.btn` share this rule (rather than each
+     picking its own number) since nearly every undersized control in that
+     review traced back to one of these two shared classes. */
   .field {
-    @apply w-full rounded-lg border border-ink-500 bg-ink-800 px-3 py-2 text-sm
-           text-slate-100 placeholder:text-slate-500
+    @apply w-full rounded-lg border border-ink-500 bg-ink-800 px-3 py-3 text-sm
+           text-slate-100 placeholder:text-slate-400
            focus:border-accent focus:outline-none;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-3
            text-sm font-medium transition-colors
            disabled:cursor-not-allowed disabled:opacity-40;
   }
 
   .btn-primary {
-    @apply btn bg-accent text-ink-900 hover:bg-accent/90;
+    @apply btn bg-primary text-primary-foreground hover:bg-primary/90;
   }
 
   .btn-secondary {
@@ -79,5 +279,22 @@
 
   .card {
     @apply rounded-xl border border-ink-600 bg-ink-800;
+  }
+
+  /* Hides the scrollbar on one specific scrollable element while leaving it
+     scrollable — for screens (the home screen's entry list, Settings) where
+     the app's default persistent 10px thumb (`::-webkit-scrollbar` above)
+     reads as clutter rather than a useful affordance. A class selector, not
+     a change to that base rule, so other scrollable areas keep the default.
+     Covers every engine this app's targets actually use: Chromium/WebKit
+     (the `::-webkit-scrollbar` sub-element, same as the base rule above),
+     Firefox (`scrollbar-width`), and the old MS-prefixed property for
+     completeness. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

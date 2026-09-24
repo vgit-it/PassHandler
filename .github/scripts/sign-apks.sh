@@ -87,7 +87,7 @@ for apk in "$apk_dir"/*/release/*.apk; do
   "$build_tools/zipalign" -p -f 4 "$apk" "$aligned"
 
   if [ -n "$keystore" ]; then
-    target="$dist/PassHandler-$version-$abi.apk"
+    target="$dist/Vault-$version-$abi.apk"
     "$build_tools/apksigner" sign \
       --ks "$keystore" \
       --ks-pass env:KEYSTORE_PASSWORD \
@@ -96,7 +96,7 @@ for apk in "$apk_dir"/*/release/*.apk; do
       --out "$target" \
       "$aligned"
   else
-    target="$dist/PassHandler-$version-$abi-unsigned.apk"
+    target="$dist/Vault-$version-$abi-unsigned.apk"
     cp "$aligned" "$target"
   fi
 

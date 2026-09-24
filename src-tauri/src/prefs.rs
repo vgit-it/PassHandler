@@ -13,12 +13,14 @@
 //! field values — no titles, no usernames, no passwords.
 
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{Error, Result};
+use crate::fill::HotkeyCombo;
 
 const SETTINGS_FILE: &str = "settings.json";
 const SYNC_STATE_FILE: &str = "sync-state.json";
@@ -32,6 +34,28 @@ pub struct Settings {
     pub clipboard_clear_seconds: u32,
     pub biometric_unlock_enabled: bool,
     pub onboarding_complete: bool,
+    /// Whether entry rows fetch and show the site's favicon.
+    ///
+    /// Defaulted explicitly (rather than relying on `#[serde(default)]`'s
+    /// `bool::default()` of `false`) so existing installs — whose
+    /// `settings.json` predates this field and so has no key for it at all —
+    /// come back on upgrade with icons on, matching what a fresh install
+    /// gets. `read_json` already falls back to `T::default()` on any parse
+    /// failure, so this also has to stay a value `serde` can fill in when the
+    /// key is simply absent, not just when the whole file is unreadable.
+    #[serde(default = "default_true")]
+    pub show_site_icons: bool,
+    /// Windows only; ignored on Android. Defaulted the same way
+    /// `show_site_icons` is above — an existing `settings.json` predating
+    /// this field has no key for it at all, and should come back on upgrade
+    /// with the same combo this feature originally shipped hardcoded as,
+    /// not an empty/invalid one.
+    #[serde(default = "HotkeyCombo::default_combo")]
+    pub manual_fill_hotkey: HotkeyCombo,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -41,6 +65,8 @@ impl Default for Settings {
             clipboard_clear_seconds: 20,
             biometric_unlock_enabled: false,
             onboarding_complete: false,
+            show_site_icons: true,
+            manual_fill_hotkey: HotkeyCombo::default_combo(),
         }
     }
 }
@@ -86,13 +112,44 @@ fn write_json<R: Runtime, T: Serialize>(app: &AppHandle<R>, name: &str, value: &
     let path = path_for(app, name)?;
     let raw = serde_json::to_string_pretty(value)?;
 
-    // Same atomic-replace discipline as the vault. Losing settings is survivable
-    // but losing `last_known_revision` mid-write would make the next sync think
-    // it had never synced, forcing an unnecessary merge.
+    // Same atomic-replace discipline as the vault, including the fsync before
+    // rename that vault_file.rs has and this used to skip. Without it, a write
+    // this small survives an ordinary process kill (the dirty page sits in the
+    // OS cache and a later read still sees it) but is not guaranteed to survive
+    // one that comes with the device under enough memory pressure to matter —
+    // which is exactly when Android is most likely to kill this app. Losing
+    // `onboarding_complete` mid-write is what sends a fully set-up install back
+    // to onboarding; losing `last_known_revision` would force an unnecessary
+    // merge. Neither should depend on how lucky the timing was.
     let temp = path.with_extension("json.tmp");
-    fs::write(&temp, raw)?;
+    {
+        let mut file = fs::File::create(&temp)?;
+        file.write_all(raw.as_bytes())?;
+        file.sync_all()?;
+    }
     fs::rename(&temp, &path)?;
+
+    if let Some(dir) = path.parent() {
+        if let Ok(dir_handle) = fs::File::open(dir) {
+            let _ = dir_handle.sync_all();
+        }
+    }
+
     Ok(())
+}
+
+/// Synchronous read of the same file `settings_load` exposes over IPC — for
+/// `fill.rs`, which needs the persisted hotkey combo at startup (before any
+/// renderer exists to ask) and again inside `set_manual_fill_hotkey`, itself
+/// already an IPC command with nothing to gain from a second async hop into
+/// the same tiny, already-fast file read.
+pub(crate) fn load<R: Runtime>(app: &AppHandle<R>) -> Result<Settings> {
+    read_json(app, SETTINGS_FILE)
+}
+
+/// Counterpart to `load`, for the same reason.
+pub(crate) fn save<R: Runtime>(app: &AppHandle<R>, settings: &Settings) -> Result<()> {
+    write_json(app, SETTINGS_FILE, settings)
 }
 
 #[tauri::command]

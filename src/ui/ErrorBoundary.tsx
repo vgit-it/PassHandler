@@ -24,7 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Production has no devtools, so this line is unlikely to be seen — the
     // rendered fallback below is what actually reaches the user.
-    console.error('Pass Handler crashed:', error, info.componentStack);
+    console.error('Vault crashed:', error, info.componentStack);
   }
 
   render() {
@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex h-full flex-col gap-3 overflow-auto p-4 text-sm text-slate-200">
-        <p className="font-semibold text-red-400">Pass Handler hit an error and could not continue.</p>
+        <p className="font-semibold text-red-400">Vault hit an error and could not continue.</p>
         <p className="text-slate-400">
           Nothing was written to the vault. Copy the details below if you are reporting this.
         </p>

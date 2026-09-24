@@ -1,8 +1,15 @@
 //! Google OAuth 2.0 with PKCE.
 //!
-//! Pass Handler is a public client: it ships no client secret, because a secret
-//! embedded in a binary handed to three people is not a secret. PKCE is what
-//! makes that safe.
+//! Vault treats itself as a public client — PKCE is what actually
+//! secures the exchange — but Google's Cloud Console issues a "client secret"
+//! for Desktop-app clients regardless, and its token endpoint rejects a
+//! request that omits it (`invalid_request: client_secret is missing`), even
+//! though the official docs list the field as optional for installed apps.
+//! So it is sent, but not treated as confidential: it is build-time
+//! configuration exactly like the client ID, not something requiring its own
+//! protection — a value compiled into a binary handed to a few people is not
+//! a secret either way. Android clients are never issued one at all, and none
+//! is sent for that flow.
 //!
 //! The entire flow runs in Rust. Consent opens in the *system browser*, never in
 //! our webview — so Google's page cannot script our origin, and our Content
@@ -24,9 +31,8 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, Runtime};
 use tokio::sync::oneshot;
 
-use tauri_plugin_passhandler::{
-    PassHandlerExt, SecretSlot, SecureStoreDeleteRequest, SecureStoreGetRequest,
-    SecureStoreSetRequest,
+use tauri_plugin_vault::{
+    SecretSlot, SecureStoreDeleteRequest, SecureStoreGetRequest, SecureStoreSetRequest, VaultExt,
 };
 
 use crate::error::{Error, Result};
@@ -68,6 +74,9 @@ pub struct OauthState {
 #[derive(Default)]
 struct Inner {
     client_id: Option<String>,
+    /// Only ever set for the desktop client — see the module docs. Android
+    /// clients have no secret, and none is sent for that flow.
+    client_secret: Option<String>,
     /// Access token and its expiry. Memory only — a restart re-derives it from
     /// the refresh token in secure storage.
     access_token: Option<String>,
@@ -123,19 +132,29 @@ fn challenge_for(verifier: &str) -> String {
 
 // ---------------------------------------------------------------- commands
 
-/// Supply the platform's OAuth client ID.
+/// Supply the platform's OAuth client ID, and its client secret if it has one.
 ///
 /// Called once at startup by the renderer, which picks between the desktop and
-/// Android client from build-time configuration. Passing an empty string is how
-/// an unconfigured build reports itself.
+/// Android client from build-time configuration. Passing an empty string for
+/// either is how an unconfigured build, or a client with no secret, reports
+/// itself — see the module docs for why the desktop client needs one at all.
 #[tauri::command]
-pub async fn drive_configure<R: Runtime>(app: AppHandle<R>, client_id: String) -> Result<()> {
+pub async fn drive_configure<R: Runtime>(
+    app: AppHandle<R>,
+    client_id: String,
+    client_secret: String,
+) -> Result<()> {
     let state = app.state::<OauthState>();
     let mut inner = state.inner.lock().map_err(|_| Error::Internal)?;
     inner.client_id = if client_id.trim().is_empty() {
         None
     } else {
         Some(client_id)
+    };
+    inner.client_secret = if client_secret.trim().is_empty() {
+        None
+    } else {
+        Some(client_secret)
     };
     Ok(())
 }
@@ -148,18 +167,22 @@ pub async fn drive_status<R: Runtime>(app: AppHandle<R>) -> Result<DriveStatus> 
         inner.client_id.is_some()
     };
 
+    let connected = configured && stored_refresh_token(&app).await?.is_some();
     Ok(DriveStatus {
         configured,
-        connected: configured && stored_refresh_token(&app)?.is_some(),
+        connected,
     })
 }
 
 #[tauri::command]
 pub async fn drive_connect<R: Runtime>(app: AppHandle<R>) -> Result<()> {
-    let client_id = {
+    let (client_id, client_secret) = {
         let state = app.state::<OauthState>();
         let inner = state.inner.lock().map_err(|_| Error::Internal)?;
-        inner.client_id.clone().ok_or(Error::NotConfigured)?
+        (
+            inner.client_id.clone().ok_or(Error::NotConfigured)?,
+            inner.client_secret.clone(),
+        )
     };
 
     let verifier = random_urlsafe(64)?;
@@ -201,7 +224,17 @@ pub async fn drive_connect<R: Runtime>(app: AppHandle<R>) -> Result<()> {
         urlencoding::encode(&csrf_state),
     );
 
-    tauri_plugin_opener::open_url(auth_url, None::<&str>).map_err(|_| Error::Internal)?;
+    // The free `tauri_plugin_opener::open_url` function always shells out
+    // (`xdg-open`/`open`/`start`), which only exists on desktop — it fails
+    // silently on Android (no browser opens, no visible error) because
+    // there's no shell to spawn there. `app.opener().open_url(...)`, via the
+    // `OpenerExt` trait, is the platform-dispatched version: desktop still
+    // shells out, but mobile goes through the native Kotlin/Swift `open`
+    // command instead, which is what actually launches the consent screen.
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url(auth_url, None::<&str>)
+        .map_err(|_| Error::Internal)?;
 
     let code = match tokio::time::timeout(CONSENT_TIMEOUT, rx).await {
         Ok(Ok(Ok(code))) => code,
@@ -226,14 +259,25 @@ pub async fn drive_connect<R: Runtime>(app: AppHandle<R>) -> Result<()> {
             .unwrap_or(redirect_uri)
     };
 
-    let tokens = exchange_code(&app, &client_id, &code, &verifier, &redirect_uri).await?;
+    let tokens = exchange_code(
+        &app,
+        &client_id,
+        client_secret.as_deref(),
+        &code,
+        &verifier,
+        &redirect_uri,
+    )
+    .await?;
     clear_pending(&app);
 
     // Without a refresh token the connection dies at the first access-token
     // expiry, so treat its absence as a failed connect rather than storing a
     // session that will silently stop working.
-    let refresh = tokens.refresh_token.ok_or(Error::Unauthorized)?;
-    store_refresh_token(&app, &refresh)?;
+    let refresh = tokens.refresh_token.ok_or_else(|| {
+        eprintln!("[oauth] token exchange succeeded but no refresh_token was returned");
+        Error::Unauthorized
+    })?;
+    store_refresh_token(&app, &refresh).await?;
     cache_access_token(&app, tokens.access_token, tokens.expires_in)?;
 
     Ok(())
@@ -250,7 +294,7 @@ pub async fn drive_complete_auth<R: Runtime>(app: AppHandle<R>, url: String) -> 
 pub async fn drive_disconnect<R: Runtime>(app: AppHandle<R>) -> Result<()> {
     // Revoke first so the grant disappears from the user's Google account, not
     // just from this device. A failure here must not prevent local cleanup.
-    if let Ok(Some(token)) = stored_refresh_token(&app) {
+    if let Ok(Some(token)) = stored_refresh_token(&app).await {
         let client = crate::http_client(&app)?;
         let _ = client
             .post(REVOKE_ENDPOINT)
@@ -259,10 +303,16 @@ pub async fn drive_disconnect<R: Runtime>(app: AppHandle<R>) -> Result<()> {
             .await;
     }
 
-    app.passhandler()
-        .secure_store_delete(SecureStoreDeleteRequest {
-            slot: SecretSlot::DriveRefreshToken,
-        })?;
+    {
+        let app = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            app.vault().secure_store_delete(SecureStoreDeleteRequest {
+                slot: SecretSlot::DriveRefreshToken,
+            })
+        })
+        .await
+        .map_err(|_| Error::Internal)??;
+    }
 
     let state = app.state::<OauthState>();
     let mut inner = state.inner.lock().map_err(|_| Error::Internal)?;
@@ -289,21 +339,31 @@ pub async fn access_token<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
         }
     }
 
-    let client_id = {
+    let (client_id, client_secret) = {
         let state = app.state::<OauthState>();
         let inner = state.inner.lock().map_err(|_| Error::Internal)?;
-        inner.client_id.clone().ok_or(Error::NotConfigured)?
+        (
+            inner.client_id.clone().ok_or(Error::NotConfigured)?,
+            inner.client_secret.clone(),
+        )
     };
 
-    let refresh = stored_refresh_token(app)?.ok_or(Error::Unauthorized)?;
+    let refresh = stored_refresh_token(app).await?.ok_or(Error::Unauthorized)?;
+
+    let mut form = vec![
+        ("client_id", client_id.as_str()),
+        ("refresh_token", refresh.as_str()),
+        ("grant_type", "refresh_token"),
+    ];
+    // See the module docs: only the desktop client has one, and only it needs
+    // to send it — Google's token endpoint rejects the request without it.
+    if let Some(secret) = client_secret.as_deref() {
+        form.push(("client_secret", secret));
+    }
 
     let response: TokenResponse = crate::http_client(app)?
         .post(TOKEN_ENDPOINT)
-        .form(&[
-            ("client_id", client_id.as_str()),
-            ("refresh_token", refresh.as_str()),
-            ("grant_type", "refresh_token"),
-        ])
+        .form(&form)
         .send()
         .await?
         .error_for_status()
@@ -327,7 +387,7 @@ pub async fn access_token<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
     // Google may hand back a rotated refresh token. Persist it or the next
     // refresh fails.
     if let Some(new_refresh) = response.refresh_token {
-        store_refresh_token(app, &new_refresh)?;
+        store_refresh_token(app, &new_refresh).await?;
     }
 
     Ok(response.access_token)
@@ -336,23 +396,39 @@ pub async fn access_token<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
 async fn exchange_code<R: Runtime>(
     app: &AppHandle<R>,
     client_id: &str,
+    client_secret: Option<&str>,
     code: &str,
     verifier: &str,
     redirect_uri: &str,
 ) -> Result<TokenResponse> {
+    let mut form = vec![
+        ("client_id", client_id),
+        ("code", code),
+        ("code_verifier", verifier),
+        ("grant_type", "authorization_code"),
+        ("redirect_uri", redirect_uri),
+    ];
+    // See the module docs: only the desktop client has one, and only it needs
+    // to send it — Google's token endpoint rejects the request without it.
+    if let Some(secret) = client_secret {
+        form.push(("client_secret", secret));
+    }
+
     let response = crate::http_client(app)?
         .post(TOKEN_ENDPOINT)
-        .form(&[
-            ("client_id", client_id),
-            ("code", code),
-            ("code_verifier", verifier),
-            ("grant_type", "authorization_code"),
-            ("redirect_uri", redirect_uri),
-        ])
+        .form(&form)
         .send()
         .await?;
 
     if !response.status().is_success() {
+        // Temporary diagnostics: errors crossing the IPC boundary are coarse
+        // by design (see docs/SECURITY.md), so print Google's actual reason
+        // to this terminal rather than the renderer. Safe to leave in during
+        // setup — it never touches vault contents — but strip it back out
+        // once Drive sync is confirmed working.
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        eprintln!("[oauth] token exchange failed: HTTP {status} — {body}");
         return Err(Error::Unauthorized);
     }
 
@@ -371,21 +447,44 @@ fn cache_access_token<R: Runtime>(
     Ok(())
 }
 
-fn store_refresh_token<R: Runtime>(app: &AppHandle<R>, token: &str) -> Result<()> {
-    app.passhandler()
-        .secure_store_set(SecureStoreSetRequest {
-            slot: SecretSlot::DriveRefreshToken,
-            value: token.to_string(),
-        })
-        .map_err(Into::into)
+// `secure_store_*` on the `Vault` extension trait are plain synchronous
+// calls into an OS API — Windows Credential Manager here, the Android
+// Keystore via a blocking JNI round-trip on mobile — never bounded by
+// anything this crate controls. `stored_refresh_token` in particular runs on
+// *every* startup, unconditionally, via `drive_status`: called directly
+// rather than through the IPC-dispatched `secure_store_get` command, it
+// bypassed the `spawn_blocking` wrapper added there for exactly this
+// scenario. Left uncovered, it can still starve the same worker-thread pool
+// that serves the WebView its own UI — the app-won't-open bug this whole
+// investigation has been chasing. Wrapping it here, at the source, is the
+// fix; `spawn_blocking`ing every *caller* individually would be easy to miss
+// one of.
+async fn store_refresh_token<R: Runtime>(app: &AppHandle<R>, token: &str) -> Result<()> {
+    let app = app.clone();
+    let token = token.to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        app.vault()
+            .secure_store_set(SecureStoreSetRequest {
+                slot: SecretSlot::DriveRefreshToken,
+                value: token,
+            })
+            .map_err(Into::into)
+    })
+    .await
+    .map_err(|_| Error::Internal)?
 }
 
-fn stored_refresh_token<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>> {
-    let response = app.passhandler().secure_store_get(SecureStoreGetRequest {
-        slot: SecretSlot::DriveRefreshToken,
-        reason: None,
-    })?;
-    Ok(response.value)
+async fn stored_refresh_token<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>> {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let response = app.vault().secure_store_get(SecureStoreGetRequest {
+            slot: SecretSlot::DriveRefreshToken,
+            reason: None,
+        })?;
+        Ok(response.value)
+    })
+    .await
+    .map_err(|_| Error::Internal)?
 }
 
 fn clear_pending<R: Runtime>(app: &AppHandle<R>) {
@@ -470,10 +569,10 @@ fn spawn_loopback_listener<R: Runtime>(app: AppHandle<R>, listener: tokio::net::
 
         let body = concat!(
             "<!doctype html><html><head><meta charset=\"utf-8\">",
-            "<title>Pass Handler</title></head>",
+            "<title>Vault</title></head>",
             "<body style=\"font-family:system-ui;background:#0b0d10;color:#e2e8f0;",
             "display:flex;align-items:center;justify-content:center;height:100vh\">",
-            "<p>You can close this tab and return to Pass Handler.</p></body></html>"
+            "<p>You can close this tab and return to Vault.</p></body></html>"
         );
 
         let response = format!(

@@ -1,6 +1,6 @@
 # Building and distributing
 
-Pass Handler targets **Windows and Android**. macOS and iOS are out of scope.
+Vault targets **Windows and Android**. macOS and iOS are out of scope.
 
 ## Prerequisites
 
@@ -25,15 +25,17 @@ Two workflows build this repository, and they exist for different reasons.
 | Runs on | every push and PR | a `v*` tag, or by hand |
 | Purpose | prove it compiles | produce what you install |
 | Rust profile | dev | release — LTO, `opt-level = "s"`, stripped |
-| Android output | one universal debug APK, **~640 MB** | one release APK per architecture, **~5 MB** |
+| Android output | one `arm64-v8a` debug APK, **~360 MB** | one release APK per architecture, **~5 MB** |
 | Signed | debug key | your release key, if configured |
 
-CI's APK is enormous on purpose and not a sign of anything wrong. Tauri's
+CI's APK is large on purpose and not a sign of anything wrong. Tauri's
 generated `app/build.gradle.kts` sets `jniLibs.keepDebugSymbols` for debug
-builds, so every Rust symbol survives packaging, and the universal APK carries
-all four architectures at once. Release strips and minifies, and `--split-per-abi`
-stops you downloading three architectures your phone will never load. Measured:
-640 MB down to about 5 MB for `arm64-v8a`.
+builds, so every Rust symbol survives packaging. Both workflows build with
+`--split-per-abi`: CI builds all four architectures but uploads only the
+`arm64-v8a` debug APK, while `release.yml` builds and signs whichever
+architectures are requested. Release also strips and minifies. Measured:
+about 360 MB for CI's debug APK down to about 5 MB for a release
+`arm64-v8a` APK.
 
 Only release builds run R8, so the two workflows genuinely exercise different
 code paths — minification rules that are missing break the release build and
@@ -102,6 +104,7 @@ prompt appears.
 
 ```bash
 npm run tauri android init     # once, generates src-tauri/gen/android
+npm run android:sync-ime       # copies the IME source into it — see below
 npm run tauri android dev      # emulator or attached device
 npm run tauri android build --apk
 ```
@@ -110,13 +113,22 @@ npm run tauri android build --apk
 add the OAuth redirect `intent-filter` — see
 [google-oauth-setup.md](./google-oauth-setup.md).
 
+Every hand-authored Android file — the custom IME (`VaultIme.kt`/
+`VaultKeyboardView.kt`/etc.), this app's `MainActivity.kt` (which replaces
+the stub `android init` generates), and the theme resources it depends on
+(`colors.xml`, both `themes.xml`) — lives in the tracked
+`src-tauri/android-ime/`, and `npm run android:sync-ime`
+(`scripts/sync-android-ime.js`) copies it into `gen/android` and patches in
+its manifest entries. Run it every time `gen/` is freshly created; safe to
+re-run any other time too.
+
 ### Signing a release APK
 
 ```bash
 keytool -genkey -v \
-  -keystore pass-handler-release.jks \
+  -keystore vault-release.jks \
   -keyalg RSA -keysize 4096 -validity 10000 \
-  -alias pass-handler
+  -alias vault
 ```
 
 Tauri's generated `app/build.gradle.kts` declares no `signingConfig` for the
@@ -130,9 +142,9 @@ survive. Signing the finished APK avoids the problem entirely.
 
 | Secret | Value |
 |---|---|
-| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 pass-handler-release.jks` |
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 vault-release.jks` |
 | `ANDROID_KEYSTORE_PASSWORD` | the store password |
-| `ANDROID_KEY_ALIAS` | `pass-handler` |
+| `ANDROID_KEY_ALIAS` | `vault` |
 | `ANDROID_KEY_PASSWORD` | optional — defaults to the store password, which is what `keytool`'s PKCS12 keystores require anyway |
 
 The keystore is decoded to the runner's temp directory, never the workspace, and
@@ -146,8 +158,8 @@ Android OAuth client is registered against.
 
 ```bash
 zipalign -p -f 4 app-aarch64-release-unsigned.apk aligned.apk
-apksigner sign --ks pass-handler-release.jks \
-  --ks-key-alias pass-handler --out PassHandler.apk aligned.apk
+apksigner sign --ks vault-release.jks \
+  --ks-key-alias vault --out Vault.apk aligned.apk
 ```
 
 Both tools are in `$ANDROID_HOME/build-tools/<version>/`. The keystore is

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Required IME metadata descriptor for VaultIme — see
+     docs/MANUAL-FILL-DESIGN.md. No subtypes: this is a single-purpose
+     picker, not a language keyboard, so there is nothing to declare beyond
+     the bare element the manifest's <service> points at. -->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android" />

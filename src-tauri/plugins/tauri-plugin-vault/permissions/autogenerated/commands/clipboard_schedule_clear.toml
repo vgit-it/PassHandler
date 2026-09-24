@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-clipboard-schedule-clear"
+description = "Enables the clipboard_schedule_clear command without any pre-configured scope."
+commands.allow = ["clipboard_schedule_clear"]
+
+[[permission]]
+identifier = "deny-clipboard-schedule-clear"
+description = "Denies the clipboard_schedule_clear command without any pre-configured scope."
+commands.deny = ["clipboard_schedule_clear"]

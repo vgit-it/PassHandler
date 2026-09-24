@@ -1,14 +1,24 @@
 [package]
-name = "pass-handler"
+name = "vault"
 version = "1.0.0"
 description = "KeePass-compatible password manager for Windows and Android"
-authors = ["Pass Handler"]
+authors = ["Vault"]
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
 # Required for the Android build: the mobile entry point links against a shared
 # library, while the desktop binary links the same code statically.
+#
+# Deliberately still "pass_handler_lib" — Tauri's own generated
+# `Rust.kt` (`src-tauri/gen/android/.../generated/Rust.kt`) loads this exact
+# string via `System.loadLibrary(...)` at app startup; that file regenerates
+# from this value on a real `tauri android init`/build, which this sandbox
+# has no toolchain to run or verify. Renaming it here without a real Android
+# build to confirm the regen actually happened would risk a hard startup
+# crash (`UnsatisfiedLinkError`) with no way to catch it before a real
+# device does. Change together with a verified Android build, not as part
+# of an ordinary rename.
 name = "pass_handler_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -20,7 +30,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-os = "2"
-tauri-plugin-passhandler = { path = "plugins/tauri-plugin-passhandler" }
+tauri-plugin-vault = { path = "plugins/tauri-plugin-vault" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -51,6 +61,9 @@ tauri-plugin-single-instance = "2"
 
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-biometric = "2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+tauri-plugin-global-shortcut = "2.3.2"
 
 [features]
 # `tauri/custom-protocol` is what the CLI turns on for a production bundle.

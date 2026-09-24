@@ -65,14 +65,14 @@ two platforms a Linux checkout cannot build. All three jobs must pass.
 
 | Job | What it proves |
 |---|---|
-| **Checks** (Linux) | The commands above: typecheck, lint, the 43 tests, the frontend build, `cargo check --all-targets`, `cargo test --lib` |
+| **Checks** (Linux) | The commands above: typecheck, lint, the 180 tests, the frontend build, `cargo check --all-targets`, `cargo test --lib` |
 | **Build (Windows)** | `cargo check` against **MSVC**, then a full `tauri build`. Uploads the NSIS installer and the MSI |
-| **Build (Android)** | `tauri android init`, then `tauri android build --debug --apk` — compiles the Kotlin plugin and links the Rust for all four Android ABIs. Uploads the APK |
+| **Build (Android)** | `tauri android init`, `android:sync-ime`, then `tauri android build --debug --apk --split-per-abi --target aarch64 armv7 i686 x86_64` — compiles the Kotlin plugin, the IME, and links the Rust for all four Android ABIs, but uploads only the `arm64-v8a` debug APK |
 
 The Windows job is the only thing that compiles the Credential Manager and
 Windows Hello paths, including the `IUserConsentVerifierInterop` call a Win32
 process needs. The Android job is the only thing that compiles
-`PassHandlerPlugin.kt` at all.
+`VaultPlugin.kt` at all.
 
 Neither job runs the app. They prove the code compiles, links and packages —
 not that Hello prompts, that a fingerprint is accepted, or that Drive answers.
@@ -131,21 +131,25 @@ Only real KeePassXC can prove this; it is not installable in CI.
 
 1. In KeePassXC, create a vault with a couple of entries, including one with
    punctuation and one with a multi-line note. Save it as KDBX4.
-2. Copy it over Pass Handler's vault at
+2. Copy it over Vault's vault at
    `%APPDATA%\com.passhandler.app\vault.kdbx` and unlock it in the app.
 3. Confirm every entry, username, password and note reads back exactly.
-4. Add and edit entries in Pass Handler, then open the same file in KeePassXC.
+4. Add and edit entries in Vault, then open the same file in KeePassXC.
    Confirm the changes are there and KeePassXC reports no format problems.
 
 ### 2. Android toolchain
 
-This used to be the main risk to the project. CI now runs `android init` and
-builds an APK on every push, so the Gradle wiring, the Kotlin and the four Rust
-ABI targets are known-good — what is left is your local SDK and NDK install, and
-a real device.
+This used to be the main risk to the project. CI now runs `android init`,
+syncs in the hand-authored IME source (`npm run android:sync-ime` — see
+CLAUDE.md's Commands section and `scripts/sync-android-ime.js`; before this
+existed, CI's build silently excluded the entire IME, so "the Kotlin is
+known-good" was not actually true of that code), and builds an APK on every
+push, so the Gradle wiring and the four Rust ABI targets are known-good —
+what is left is your local SDK and NDK install, and a real device.
 
 ```bash
 npm run tauri android init
+npm run android:sync-ime
 npm run tauri android dev      # emulator
 npm run tauri android dev --open   # physical device
 ```

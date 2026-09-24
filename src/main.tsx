@@ -25,8 +25,8 @@ function showFatalError(error: unknown): void {
   const pre = document.createElement('pre');
   pre.style.cssText =
     'white-space: pre-wrap; margin: 0; padding: 16px; ' +
-    'font: 12px/1.4 monospace; color: #f8fafc; background: #0b0d10;';
-  pre.textContent = `Pass Handler failed to start.\n\n${message}`;
+    'font: 12px/1.4 monospace; color: #d6e4ef; background: #0c1827;';
+  pre.textContent = `Vault failed to start.\n\n${message}`;
   root!.appendChild(pre);
 }
 

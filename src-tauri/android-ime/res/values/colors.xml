@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The original Android Studio template's own placeholder swatch
+         (purple_200/500/700, teal_200/700) lived here unreferenced by
+         anything — confirmed by grepping the whole project — until
+         removed investigating a "system status/nav bar is some dark blue"
+         report: `Theme.vault` (`themes.xml`) never mapped any of
+         them to `colorPrimary`/`colorPrimaryDark`, so Android was actually
+         falling back to Material Components' own built-in default indigo/
+         purple palette wherever the theme didn't win outright — the SAME
+         color family as this leftover swatch, and a very plausible source
+         of exactly that report, even though nothing here was technically
+         "in use." See `MainActivity.kt`'s own doc on the actual fix. -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- The Figma home-screen design's own root-frame background
+         (node 103:175, `HomeScreen` — `#292c2f`, a flat fill as of the
+         design's latest revision; an earlier revision had this as a
+         `#3a4148`→`#2a3036` gradient, which is why `VaultScreen.tsx`'s own
+         matching web-side value is a plain literal there too, not a named
+         token — it already went through one revision and a second literal
+         swap costs nothing extra). Used as this native theme's own
+         `windowBackground` below, and directly in `MainActivity.kt` for
+         the system status/navigation bar color, so all three — the web
+         content's own "Outside" plane, the native window background behind
+         it, and the system bars around it — are always the exact same
+         value by construction, not three independently-chosen ones that
+         can drift out of sync.
+         `Theme.vault`'s parent (`Theme.MaterialComponents.DayNight.
+         NoActionBar`) had no background override at all until this was
+         added, so the native window fell back to whatever the platform's
+         own day/night default resolves to (a light background in day mode,
+         a generic Material dark grey in night mode) — neither of which is
+         this app's actual color. That default is what's briefly visible on
+         cold start before the WebView paints, and in any edge-to-edge
+         inset area the WebView doesn't cover (`enableEdgeToEdge()` in
+         `MainActivity.kt`). This color previously matched a DIFFERENT app
+         token (`ink-950`, `#070e19`, the older ink-design-system's own page
+         background) as a reasonable stand-in chosen before the Figma
+         design specified an exact value for this particular surface — now
+         that it has, this reflects that instead; `ink-950` itself is
+         unrelated and still exactly where it always was in
+         `tailwind.config.js`, for the screens that still use it
+         (Settings, the entry editor). -->
+    <color name="home_background">#FF292C2F</color>
+</resources>

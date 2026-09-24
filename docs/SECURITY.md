@@ -64,7 +64,13 @@ platform store plus the biometric gate. Concretely:
 **Android** — `EncryptedSharedPreferences` with a master key generated inside
 the Android Keystore (StrongBox where available, TEE otherwise). The key material
 never leaves the Keystore; only ciphertext reaches disk. A `BiometricPrompt`
-check gates the read.
+check gates the read — `BIOMETRIC_STRONG` only, deliberately excluding
+`DEVICE_CREDENTIAL` (see `authenticators()` in `VaultPlugin.kt`), since
+the value being gated is password-equivalent: a device credential fallback
+would mean anyone who knows the phone's lock-screen PIN or pattern, not just
+whoever's fingerprint or face is enrolled, could open the vault. A device
+with no biometric hardware enrolled simply doesn't get this feature — the
+master password is still the way in.
 
 That check is enforced at the app layer, not by binding the Keystore key with
 `setUserAuthenticationRequired`. A key bound that way would make the guarantee
@@ -100,6 +106,7 @@ default-src 'self';
 script-src 'self' 'wasm-unsafe-eval';
 style-src 'self' 'unsafe-inline';
 img-src 'self' data:;
+font-src 'self';
 connect-src 'self' ipc: http://ipc.localhost;
 object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
 ```

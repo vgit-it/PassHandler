@@ -28,6 +28,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // See src/platform/xmldomShim.ts: kdbxweb eagerly imports
+      // @xmldom/xmldom, and that import alone crashes the app under
+      // tauri.conf.json's security.freezePrototype. The real package is
+      // never needed here — the Tauri webview always has a native
+      // DOMParser/XMLSerializer, which is what kdbxweb prefers anyway.
+      '@xmldom/xmldom': fileURLToPath(new URL('./src/platform/xmldomShim.ts', import.meta.url)),
     },
   },
 

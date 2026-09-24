@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-press-tab"
+description = "Enables the press_tab command without any pre-configured scope."
+commands.allow = ["press_tab"]
+
+[[permission]]
+identifier = "deny-press-tab"
+description = "Denies the press_tab command without any pre-configured scope."
+commands.deny = ["press_tab"]

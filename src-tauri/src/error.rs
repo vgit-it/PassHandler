@@ -35,6 +35,9 @@ pub enum Error {
 
     #[error("internal")]
     Internal,
+
+    #[error("unavailable")]
+    Unavailable,
 }
 
 impl Serialize for Error {
@@ -64,12 +67,12 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<tauri_plugin_passhandler::Error> for Error {
-    fn from(e: tauri_plugin_passhandler::Error) -> Self {
+impl From<tauri_plugin_vault::Error> for Error {
+    fn from(e: tauri_plugin_vault::Error) -> Self {
         match e {
-            tauri_plugin_passhandler::Error::NotFound => Error::NotFound,
-            tauri_plugin_passhandler::Error::Denied => Error::Unauthorized,
-            tauri_plugin_passhandler::Error::InvalidArgument => Error::InvalidArgument,
+            tauri_plugin_vault::Error::NotFound => Error::NotFound,
+            tauri_plugin_vault::Error::Denied => Error::Unauthorized,
+            tauri_plugin_vault::Error::InvalidArgument => Error::InvalidArgument,
             _ => Error::Internal,
         }
     }

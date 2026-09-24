@@ -20,7 +20,11 @@ export const DEFAULT_OPTIONS: GeneratorOptions = {
   symbols: true,
 };
 
-const CHARSETS = {
+// Exported so `PasswordField`'s generation micro-interaction can draw its
+// scramble noise from the same character pools the current options
+// actually allow, rather than an unrelated fixed set — see that file's
+// `scrambleCharsetFor`.
+export const CHARSETS = {
   uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
   numbers: '0123456789',

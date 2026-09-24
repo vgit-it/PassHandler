@@ -1,5 +1,6 @@
 import { SyncEngine } from '@/sync/syncEngine';
 import { Vault } from '@/vault/vault';
+import { fieldValue } from '@/vault/types';
 import { FakeDrive, MemorySyncStateStore, MemoryVaultStore } from './fakeDrive';
 
 /**
@@ -92,7 +93,7 @@ export class Device {
     if (!entry) throw new Error(`${this.name}: no entry titled ${title}`);
     this.vault!.updateEntry(entry.id, {
       title,
-      username: changes.username ?? entry.username,
+      username: changes.username ?? fieldValue(entry, 'username'),
       password: changes.password ?? this.vault!.readPassword(entry.id) ?? '',
     });
     await this.engine.markDirtyAndSave();

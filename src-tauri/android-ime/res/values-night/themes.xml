@@ -1,0 +1,16 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.vault" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- This variant was still the stock, untouched Android Studio
+             placeholder — found investigating the status/navigation bar
+             color report: a device in system dark mode (the common case,
+             and the only mode this app's own CSS ever designs for — see
+             tailwind.config.js's own "dark is the only theme" comment)
+             resolves its window theme from THIS file, not `values/
+             themes.xml`, so the `android:windowBackground` fix there
+             (`colors.xml`'s own doc on `home_background`) was never
+             actually reaching a dark-mode device at all. Same fix, same
+             color, mirrored here. -->
+        <item name="android:windowBackground">@color/home_background</item>
+    </style>
+</resources>

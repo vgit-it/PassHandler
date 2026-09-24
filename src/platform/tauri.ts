@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { addPluginListener } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { platform as osPlatform } from '@tauri-apps/plugin-os';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
@@ -11,6 +12,11 @@ import {
   Clipboard,
   DEFAULT_SETTINGS,
   DriveClient,
+  ExportOutcome,
+  FaviconIcon,
+  HotkeyCombo,
+  HotkeyStatus,
+  ImportOutcome,
   LocalVaultStore,
   Platform,
   Settings,
@@ -27,7 +33,7 @@ import {
  * production.
  */
 
-const PLUGIN = 'passhandler';
+const PLUGIN = 'vault';
 
 /** Base64 is used for the IPC hop because vault blobs are tens of kilobytes. */
 function toBase64(data: ArrayBuffer): string {
@@ -122,6 +128,14 @@ class TauriDriveClient implements DriveClient {
     return call<DriveFileMeta | null>('drive_find_file', { vaultId });
   }
 
+  findAny(): Promise<DriveFileMeta | null> {
+    return call<DriveFileMeta | null>('drive_find_any_file');
+  }
+
+  listFiles(): Promise<DriveFileMeta[]> {
+    return call<DriveFileMeta[]>('drive_list_files');
+  }
+
   getMetadata(fileId: string): Promise<DriveFileMeta> {
     return call<DriveFileMeta>('drive_get_metadata', { fileId });
   }
@@ -155,6 +169,14 @@ class TauriClipboard implements Clipboard {
       expected,
     });
     return result.cleared;
+  }
+
+  async scheduleClear(seconds: number): Promise<void> {
+    await callPlugin('clipboard_schedule_clear', { delayMs: Math.round(seconds * 1000) });
+  }
+
+  async cancelScheduledClear(): Promise<void> {
+    await callPlugin('clipboard_cancel_scheduled_clear', {});
   }
 }
 
@@ -214,12 +236,35 @@ export function createTauriPlatform(): Platform {
       return status.connected;
     },
 
+    async driveAccountEmail() {
+      try {
+        return await call<string | null>('drive_account_email');
+      } catch {
+        // Not fatal to anything — Settings just shows no email instead of an
+        // account it could not confirm.
+        return null;
+      }
+    },
+
     async connectDrive() {
       await call('drive_connect');
     },
 
     async disconnectDrive() {
       await call('drive_disconnect');
+    },
+
+    async fetchFavicon(url: string) {
+      try {
+        const result = await call<{ mime: string; dataBase64: string } | null>(
+          'fetch_favicon',
+          { url },
+        );
+        return result satisfies FaviconIcon | null;
+      } catch {
+        // A decorative icon is never worth surfacing an error for.
+        return null;
+      }
     },
 
     async setScreenCaptureBlocked(blocked: boolean) {
@@ -246,6 +291,40 @@ export function createTauriPlatform(): Platform {
       return () => subscription.unregister();
     },
 
+    async onEnterPickMode(handler) {
+      return listen('fill://enter-pick-mode', () => handler());
+    },
+
+    async typeText(text: string) {
+      await callPlugin('type_text', { text });
+    },
+
+    async pressTab() {
+      await callPlugin('press_tab', {});
+    },
+
+    async focusedFieldIsPassword() {
+      const result = await callPlugin<{ isPassword: boolean | null }>(
+        'focused_field_is_password',
+        {},
+      );
+      return result.isPassword;
+    },
+
+    async minimizeMainWindow() {
+      await getCurrentWindow().minimize();
+    },
+
+    manualFillHotkeyStatus() {
+      // Main-crate command (fill.rs), not a plugin one — same as
+      // settings_load/settings_save above.
+      return call<HotkeyStatus>('manual_fill_hotkey_status');
+    },
+
+    setManualFillHotkey(combo: HotkeyCombo) {
+      return call<HotkeyStatus>('set_manual_fill_hotkey', { combo });
+    },
+
     vaultExists() {
       return call<boolean>('vault_exists');
     },
@@ -257,24 +336,52 @@ export function createTauriPlatform(): Platform {
     async restoreBackup() {
       await call('vault_restore_backup');
     },
+
+    exportVault() {
+      // `vault_export` is a main-crate command, not a plugin command — it
+      // reads the vault straight off disk, so there's nothing to base64
+      // through JS the way vault_read/vault_write do.
+      return call<ExportOutcome>('vault_export');
+    },
+
+    async pickLocalVaultFile() {
+      // Unlike export, there are no local bytes to hand the host first —
+      // this goes straight to the plugin's own `import_vault` command.
+      const result = await callPlugin<
+        { kind: 'picked'; dataB64: string } | { kind: 'cancelled' }
+      >('import_vault', {});
+      if (result.kind === 'cancelled') return { kind: 'cancelled' };
+      return { kind: 'picked', data: fromBase64(result.dataB64) } satisfies ImportOutcome;
+    },
   };
 }
 
 /**
- * Hand the host the OAuth client ID for this platform.
+ * Hand the host the OAuth client ID (and secret, if it has one) for this
+ * platform.
  *
  * Two clients are required — Google validates a desktop client by loopback
  * redirect and an Android client by package name plus signing-key SHA-1 — so
  * the right one is chosen here and the host never has to know which platform it
  * is serving. An empty value is how an unconfigured build reports itself, and
  * the app stays local-only.
+ *
+ * Only the desktop client has a secret — Google's Cloud Console never issues
+ * one for an Android client — and see `src-tauri/src/oauth.rs`'s module docs
+ * for why the desktop client needs it sent despite being a PKCE public client.
  */
 export async function configureDrive(platform: Platform): Promise<void> {
   const clientId = platform.isAndroid
     ? import.meta.env.VITE_GOOGLE_CLIENT_ID_ANDROID
     : import.meta.env.VITE_GOOGLE_CLIENT_ID_DESKTOP;
+  const clientSecret = platform.isAndroid
+    ? ''
+    : import.meta.env.VITE_GOOGLE_CLIENT_SECRET_DESKTOP;
 
-  await call('drive_configure', { clientId: clientId ?? '' });
+  await call('drive_configure', {
+    clientId: clientId ?? '',
+    clientSecret: clientSecret ?? '',
+  });
 }
 
 export async function completeOauthRedirect(url: string): Promise<void> {

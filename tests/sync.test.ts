@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { Vault } from '@/vault/vault';
+import { fieldValue } from '@/vault/types';
 import { FakeDrive } from './support/fakeDrive';
 import { Device, waitForNextSecond } from './support/device';
 
@@ -100,8 +101,8 @@ describe('sync', () => {
 
     // B edited last, so B's version survives on both devices — and critically,
     // neither device silently dropped the other's entry.
-    expect(a.find('Shared')!.username).toBe('edited-by-b');
-    expect(b.find('Shared')!.username).toBe('edited-by-b');
+    expect(fieldValue(a.find('Shared')!, 'username')).toBe('edited-by-b');
+    expect(fieldValue(b.find('Shared')!, 'username')).toBe('edited-by-b');
     expect(a.password('Shared')).toBe('pw-from-b');
 
     // The losing edit is not destroyed: KeePass keeps it in the entry's

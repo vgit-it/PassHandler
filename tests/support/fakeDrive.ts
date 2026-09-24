@@ -29,7 +29,15 @@ export class FakeDrive implements DriveClient {
   offline = false;
 
   /** Call counts, so tests can assert the check-write-verify ordering happened. */
-  readonly calls = { getMetadata: 0, download: 0, update: 0, create: 0, findFile: 0 };
+  readonly calls = {
+    getMetadata: 0,
+    download: 0,
+    update: 0,
+    create: 0,
+    findFile: 0,
+    findAny: 0,
+    listFiles: 0,
+  };
 
   /**
    * Runs immediately after an `update` writes but before it returns, letting a
@@ -68,6 +76,24 @@ export class FakeDrive implements DriveClient {
       if (file.name === name) return this.meta(id);
     }
     return null;
+  }
+
+  async findAny(): Promise<DriveFileMeta | null> {
+    this.guard();
+    this.calls.findAny++;
+    const [id] = this.files.keys();
+    return id === undefined ? null : this.meta(id);
+  }
+
+  async listFiles(): Promise<DriveFileMeta[]> {
+    this.guard();
+    this.calls.listFiles++;
+    // Newest first, matching the real `orderBy=modifiedTime desc` query —
+    // `revision` stands in for modified time here, same as `meta()` derives
+    // `modifiedTime` from it above.
+    return [...this.files.keys()]
+      .sort((a, b) => this.files.get(b)!.revision - this.files.get(a)!.revision)
+      .map((id) => this.meta(id));
   }
 
   async getMetadata(fileId: string): Promise<DriveFileMeta> {
