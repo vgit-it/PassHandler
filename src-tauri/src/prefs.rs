@@ -52,6 +52,14 @@ pub struct Settings {
     /// not an empty/invalid one.
     #[serde(default = "HotkeyCombo::default_combo")]
     pub manual_fill_hotkey: HotkeyCombo,
+    /// Ids of the first-run tip sequences already finished or skipped on
+    /// this device (`docs/ONBOARDING-TIPS-DESIGN.md`). `#[serde(default)]`
+    /// is load-bearing: `read_json` falls back to `Settings::default()` for
+    /// the whole file on a parse failure, so without it every existing
+    /// `settings.json` (no key for this yet) would reset
+    /// `onboarding_complete` too and send a set-up install back to first run.
+    #[serde(default)]
+    pub tips_seen: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -67,6 +75,7 @@ impl Default for Settings {
             onboarding_complete: false,
             show_site_icons: true,
             manual_fill_hotkey: HotkeyCombo::default_combo(),
+            tips_seen: Vec::new(),
         }
     }
 }

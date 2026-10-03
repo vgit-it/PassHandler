@@ -22,6 +22,8 @@ permissions = [
     "allow-import-vault",
     "allow-type-text",
     "allow-press-tab",
+    "allow-keyboard-status",
+    "allow-open-keyboard-settings",
     "allow-register-listener",
     "allow-remove-listener",
 ]

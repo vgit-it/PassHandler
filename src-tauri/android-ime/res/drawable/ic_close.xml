@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  An X — the IME's cancel / clear-search glyph, in place of a "✕" text character.
+  Drawn on the shared 24x24, 1.8px-stroke grid of `src/ui/components/icons.tsx`.
+  The `#E2E6EA` color is a placeholder: call sites apply their own tint.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M6 6l12 12M18 6L6 18"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

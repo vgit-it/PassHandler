@@ -13,6 +13,8 @@ const COMMANDS: &[&str] = &[
     "import_vault",
     "type_text",
     "press_tab",
+    "keyboard_status",
+    "open_keyboard_settings",
     // Not app commands — these back `addPluginListener` on Android, which the
     // OAuth redirect delivery (Kotlin `trigger("oauth-callback", ...)`) needs.
     // Tauri's ACL gates them exactly like any other command: without an entry

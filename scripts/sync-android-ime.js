@@ -23,10 +23,11 @@
 // to re-run — file copies just overwrite, and the manifest patch checks its
 // own marker comments before inserting anything twice.
 //
-// Deliberately NOT handled here: the Google Drive OAuth redirect
-// intent-filter (`docs/google-oauth-setup.md`) — its value is derived from
-// each developer's own OAuth client ID, so there is no fixed value this
-// script could insert. That stays the documented manual step it already is.
+// It also generates the Google Drive OAuth redirect intent-filter on
+// `MainActivity` (`docs/google-oauth-setup.md`). That one is not copied from
+// a tracked file: its scheme is the reversed Android OAuth client ID, which
+// differs per developer and between the debug and release clients, so it is
+// derived from `VITE_GOOGLE_CLIENT_ID_ANDROID` on every run.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -69,7 +70,38 @@ const javaFrom = join(sourceDir, 'java', 'com', 'passhandler', 'app');
 const javaTo = join(appMain, 'java', 'com', 'passhandler', 'app');
 for (const file of javaFiles) copyInto(file, javaFrom, javaTo);
 
-const drawableFiles = ['ic_lock.xml', 'ic_globe.xml', 'ic_vault_logo.xml', 'ic_home_logo.xml'];
+const drawableFiles = [
+  'ic_lock.xml',
+  'ic_globe.xml',
+  'ic_vault_logo.xml',
+  'ic_home_logo.xml',
+  // Control glyphs, in place of text characters (✕ ✓ + ⌫) whose look
+  // varies by device font.
+  'ic_close.xml',
+  'ic_check.xml',
+  'ic_plus.xml',
+  'ic_backspace.xml',
+  'ic_eye.xml',
+  'ic_eye_off.xml',
+  'ic_keyboard.xml',
+  'ic_chevron_down.xml',
+  // Entry-type glyphs for the IME's result-row icons — see
+  // `VaultKeyboardView.entryTypeIconRes`.
+  'ic_type_address.xml',
+  'ic_type_backup_codes.xml',
+  'ic_type_bank.xml',
+  'ic_type_card.xml',
+  'ic_type_identity.xml',
+  'ic_type_insurance.xml',
+  'ic_type_license_key.xml',
+  'ic_type_loyalty.xml',
+  'ic_type_phone.xml',
+  'ic_type_secure_note.xml',
+  'ic_type_security_qa.xml',
+  'ic_type_ssh_key.xml',
+  'ic_type_vehicle.xml',
+  'ic_type_wifi.xml',
+];
 const drawableFrom = join(sourceDir, 'res', 'drawable');
 const drawableTo = join(appMain, 'res', 'drawable');
 for (const file of drawableFiles) copyInto(file, drawableFrom, drawableTo);
@@ -132,6 +164,88 @@ for (const fragment of fragments) {
   inserted++;
   console.log(`[sync-android-ime] inserted ${fragment.name}`);
 }
-if (inserted > 0) writeFileSync(manifestPath, manifest);
+
+// --- AndroidManifest.xml: the OAuth redirect intent-filter, inside
+// `MainActivity`'s own <activity> element. Unlike the fragments above it is
+// rewritten on every run rather than skipped once present, so a changed
+// client ID (debug → release, or a new client) can never leave a stale
+// redirect scheme behind.
+
+// Same precedence as Vite: a variable already in the environment (how
+// `release.yml` could pass it) wins over `.env`.
+function readAndroidClientId() {
+  const fromEnv = process.env.VITE_GOOGLE_CLIENT_ID_ANDROID;
+  if (fromEnv !== undefined) return fromEnv.trim();
+  const envPath = join(repoRoot, '.env');
+  if (!existsSync(envPath)) return '';
+  const line = readFileSync(envPath, 'utf8')
+    .split(/\r?\n/)
+    .find((l) => /^\s*VITE_GOOGLE_CLIENT_ID_ANDROID\s*=/.test(l));
+  if (!line) return '';
+  return line
+    .slice(line.indexOf('=') + 1)
+    .trim()
+    .replace(/^(['"])(.*)\1$/, '$2');
+}
+
+const oauthBegin = '<!-- sync-marker: oauth-redirect -->';
+const oauthEnd = '<!-- /sync-marker: oauth-redirect -->';
+const before = manifest;
+const oldBlock = new RegExp(`[ \\t]*${oauthBegin}[\\s\\S]*?${oauthEnd}\\r?\\n?`);
+manifest = manifest.replace(oldBlock, '');
+
+const clientSuffix = '.apps.googleusercontent.com';
+const clientId = readAndroidClientId();
+if (!clientId) {
+  console.log(
+    '[sync-android-ime] no VITE_GOOGLE_CLIENT_ID_ANDROID — no OAuth redirect, Drive stays off on Android',
+  );
+} else {
+  if (!/^[\w-]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+    fail(`VITE_GOOGLE_CLIENT_ID_ANDROID does not look like a Google OAuth client ID: ${clientId}`);
+  }
+  const scheme = `com.googleusercontent.apps.${clientId.slice(0, -clientSuffix.length)}`;
+
+  // A filter added by hand (the manual step this replaced) is left alone if
+  // it already carries this scheme. One for a different client would be a
+  // second redirect target in the app, so that stops the sync instead.
+  const existing = [...manifest.matchAll(/android:scheme="(com\.googleusercontent\.apps\.[^"]+)"/g)].map(
+    (m) => m[1],
+  );
+  const foreign = existing.filter((s) => s !== scheme);
+  if (foreign.length > 0) {
+    fail(
+      `${manifestPath} already has a hand-added OAuth redirect for ${foreign.join(', ')}, ` +
+        `which is not the configured client (${scheme}). Delete that <intent-filter> and re-run.`,
+    );
+  }
+
+  if (existing.length > 0) {
+    console.log('[sync-android-ime] oauth-redirect already present (added by hand), skipping');
+  } else {
+    const activityAt = manifest.indexOf('android:name=".MainActivity"');
+    if (activityAt === -1) fail(`${manifestPath} has no .MainActivity <activity> element.`);
+    const closeAt = manifest.indexOf('</activity>', activityAt);
+    if (closeAt === -1) fail(`${manifestPath}: .MainActivity has no </activity> closing tag.`);
+    const block = [
+      `    ${oauthBegin}`,
+      '            <!-- Google Drive sign-in redirect: the reversed Android OAuth',
+      '                 client ID. Generated from VITE_GOOGLE_CLIENT_ID_ANDROID by',
+      '                 scripts/sync-android-ime.js; re-run it after changing that. -->',
+      '            <intent-filter>',
+      '                <action android:name="android.intent.action.VIEW" />',
+      '                <category android:name="android.intent.category.DEFAULT" />',
+      '                <category android:name="android.intent.category.BROWSABLE" />',
+      `                <data android:scheme="${scheme}" />`,
+      '            </intent-filter>',
+      `            ${oauthEnd}`,
+      '        ',
+    ].join('\n');
+    manifest = `${manifest.slice(0, closeAt)}${block}${manifest.slice(closeAt)}`;
+    console.log(`[sync-android-ime] inserted oauth-redirect (${scheme})`);
+  }
+}
+
+if (inserted > 0 || manifest !== before) writeFileSync(manifestPath, manifest);
 
 console.log('[sync-android-ime] done.');

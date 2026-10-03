@@ -178,7 +178,9 @@ export const UNLOCK_TOP_BAR_HEIGHT_PX = 50;
  * literal — see that file's own use of it). The single source of truth for
  * it, so `UNLOCK_TOP_BAR_HEIGHT_PX_ANDROID` below can be derived from it
  * instead of drifting from it the way the two used to (see that constant's
- * own doc). */
+ * own doc). `minHeight` is only a floor: the header's contents (`py-3` plus
+ * its fixed 44px Lock/Settings pills) must total exactly this, or the header
+ * grows past it and Home's frame drops below the lock screen's. */
 export const ANDROID_HEADER_HEIGHT_PX = 68;
 
 /** `Unlock.tsx`'s own top-bar height on Android — sized so that, plus
@@ -188,8 +190,7 @@ export const ANDROID_HEADER_HEIGHT_PX = 68;
  * (`flushTop={true}`) header. The user's own explicit ask — "the container
  * behind the doors should be the same size and position as the container
  * in the home screen" — this constant (and `VaultDoors.tsx`'s matching use
- * of it) is what makes that literally true on Android, not just
- * approximately close.
+ * of it) is one part of making that true on Android.
  *
  * Before this, both platforms shared the one `UNLOCK_TOP_BAR_HEIGHT_PX`
  * above (50, calibrated for Windows' own, shorter, content-driven header)
@@ -197,8 +198,7 @@ export const ANDROID_HEADER_HEIGHT_PX = 68;
  * (`ANDROID_HEADER_HEIGHT_PX`, a fixed `min-h-[68px]` rather than
  * padding-around-content), that left the locked screen's container
  * rendering 10px higher and 10px taller than Home's, a real, measurable
- * mismatch — the "known remaining seam" `docs/vault-visual-overhaul-
- * plan.md` §6a already flagged (`VaultDoors.tsx`'s own doc on
- * `unlockTopBarShowing`), now closed for the two platforms' resting states
- * rather than merely documented. */
+ * mismatch. This offset is one of three things that must agree for the
+ * two boxes to match; `docs/vault-visual-overhaul-plan.md` §6a has the
+ * other two (the bezel and the safe-area insets). */
 export const UNLOCK_TOP_BAR_HEIGHT_PX_ANDROID = ANDROID_HEADER_HEIGHT_PX - 8;

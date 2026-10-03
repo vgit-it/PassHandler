@@ -6,11 +6,15 @@ import {
   CLIPBOARD_CHOICES,
   ExportOutcome,
   HotkeyCombo,
+  KeyboardStatus,
 } from '../../platform/ports';
 import { DriveFileMeta } from '../../sync/types';
 import { StrengthBar } from '../components/PasswordField';
+import { TipCard } from '../components/TipCard';
 import { Toggle } from '../components/Toggle';
 import { BackIcon, RefreshIcon } from '../components/icons';
+import { useTipSequence } from '../hooks/useTipSequence';
+import { describeHotkey } from '../hotkeyLabel';
 
 /**
  * Settings.
@@ -44,17 +48,12 @@ import { BackIcon, RefreshIcon } from '../components/icons';
  * (`EntryDetail.tsx`'s own doc on its background), so this does the same
  * defensive direct-paint here instead of relying on it again.
  *
- * Left deliberately untouched: `.field`/`.label`/`.btn-*` (`index.css`) —
- * shared component classes with call sites all over the app; `EntryDetail`
- * already reuses `.btn-secondary`/`.btn-danger` unmodified inside its own
- * vault-styled body (its delete-confirm block), so that's the standing
- * precedent for treating them as cross-system-safe rather than something
- * this pass needs to fork. `text-warn`/`border-warn`/`bg-warn` similarly
- * unchanged — the home screen itself isn't fully consistent here either
- * (`EntryList.tsx`'s own "Review" section label uses plain `warn`, not
- * `vault-warn`), so there's no single clearly-correct target to move to.
- * `text-bad` unchanged everywhere — there is no `vault-bad` token; Entry
- * Detail's own vault theme leaves `text-bad` as the plain token too.
+ * The shared controls inside (`.field`, `.btn-*`, `Toggle`, the strength
+ * bar, the `warn` banner, `text-bad`) aren't forked here: the root's scope
+ * class (`.palette-grey` on Android, `.palette-vault` on Windows, in
+ * `index.css`) redefines the color tokens they read, so they match the page
+ * instead of the old navy system — see `docs/SETTINGS-VISUAL-PASS.md`, which
+ * also has the contrast figures behind the text colors below.
  */
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const {
@@ -75,33 +74,46 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
     busy,
   } = useApp();
   const isAndroid = platform.isAndroid;
+  // First-run tips (`docs/ONBOARDING-TIPS-DESIGN.md`). Settings opens with
+  // no transition, so nothing to wait out.
+  const tip = useTipSequence('settings', true);
 
   return (
-    <div className={`flex h-full flex-col ${isAndroid ? 'bg-[#292c2f]' : 'bg-vault-wall'}`}>
-      <header className="flex items-center gap-2 px-4 pb-2 pt-3">
-        <button className="btn-ghost px-2" onClick={onBack} aria-label="Back">
-          <BackIcon />
+    <div
+      className={`flex h-full flex-col ${
+        isAndroid ? 'palette-grey bg-[#292c2f]' : 'palette-vault bg-vault-wall'
+      }`}
+    >
+      {/* Android: the same header as the other full-screen pushes
+          (`EntryDetail.tsx`, `TypePicker.tsx`) — a bare 24px back icon at
+          50%, `px-5`, an 18px title. Windows keeps its ghost button. */}
+      <header className={`flex items-center gap-2 pb-2 pt-3 ${isAndroid ? 'px-5' : 'px-4'}`}>
+        <button
+          className={
+            isAndroid ? 'p-2 text-[#d6e4ef]/50 transition-opacity active:opacity-60' : 'btn-ghost px-2'
+          }
+          onClick={onBack}
+          aria-label="Back"
+        >
+          <BackIcon className="h-6 w-6" />
         </button>
-        <h1 className={`text-sm font-semibold ${isAndroid ? 'text-[#d6e4ef]' : 'text-vault-fg'}`}>
+        <h1
+          className={
+            isAndroid ? 'text-lg font-medium text-[#d6e4ef]/80' : 'text-sm font-semibold text-vault-fg'
+          }
+        >
           Settings
         </h1>
       </header>
 
       <div
         // space-y-6 (24px, up from the 16px space-y-4 used to be) is the
-        // +8dp increase between sections. Bottom padding is platform-split:
-        // Android floats a bottom tab bar over this screen (`BottomTabBar`,
-        // via `VaultScreen.tsx`'s absolutely-positioned stack) that pb-10
-        // (40px) used to leave content — the Recovery section's bottom rows
-        // — sitting behind. That stack works out to ~104px tall (its own
-        // p-3 top+bottom (24px) plus the nav's content: py-2 (16px) + a
-        // tab button's py-1.5 (12px) + its 32px icon + 4px gap + ~16px
-        // label), so pb-28 (112px) clears it with a small margin. Desktop
-        // has no such overlay, so it keeps the original pb-10.
+        // +8dp increase between sections. Settings is a full-screen push
+        // with no tab bar over it, so plain pb-10 on both platforms.
         // no-scrollbar — same reasoning as the home screen's entry list, see
         // its own comment.
-        className={`no-scrollbar flex-1 space-y-6 overflow-y-auto px-4 ${
-          isAndroid ? 'pb-28' : 'pb-10'
+        className={`no-scrollbar flex-1 space-y-6 overflow-y-auto pb-10 ${
+          isAndroid ? 'px-5' : 'px-4'
         }`}
       >
         <Section title="Security">
@@ -160,12 +172,12 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
             />
           </Row>
 
-          {!platform.isAndroid && <ManualFillHotkeyRow />}
+          {platform.isAndroid ? <VaultKeyboardRow /> : <ManualFillHotkeyRow />}
         </Section>
 
         <Section title="Google Drive">
           {!driveConfigured ? (
-            <p className={`px-3 py-2.5 text-sm ${isAndroid ? 'text-[#d6e4ef]/50' : 'text-vault-muted'}`}>
+            <p className={`px-3 py-2.5 text-sm ${isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'}`}>
               Not configured in this build. The vault works normally without it — see
               <code
                 className={`mx-1 rounded px-1 text-xs ${isAndroid ? 'bg-white/10' : 'bg-vault-rail'}`}
@@ -236,8 +248,119 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           <RestoreBackupRow />
           <RestoreVaultRow />
         </Section>
+
+        <AboutSection />
       </div>
+
+      {/* Pinned under the scroll area — it takes its own space rather than
+          covering the last rows. */}
+      {tip && (
+        <div className={`shrink-0 pb-4 pt-2 ${isAndroid ? 'px-5' : 'px-4'}`}>
+          <TipCard tip={tip} />
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * What the app is for and how it's meant to be used, plus "Show tips
+ * again" — `docs/ONBOARDING-TIPS-DESIGN.md`'s "About (Settings)". The text
+ * expands in place, the same pattern as `RestoreBackupRow`. Same rule as
+ * the tips themselves: short, plain sentences — the readers are a handful
+ * of people, not the general public.
+ */
+function AboutSection() {
+  const { platform, settings, driveConfigured, biometricAvailable, resetTips } = useApp();
+  const isAndroid = platform.isAndroid;
+  const [open, setOpen] = useState(false);
+  const [reset, setReset] = useState(false);
+
+  const groups: { title: string; lines: string[] }[] = [
+    {
+      title: 'What it’s for',
+      lines: [
+        'Vault keeps your passwords and private details.',
+        'It’s all locked with one master password.',
+        'Nobody can reset that password. Not us, not Google.',
+        'It works without internet.',
+        'It uses KeePass files, so other KeePass apps can open it.',
+      ],
+    },
+    {
+      title: 'How to use it',
+      lines: [
+        'Add an entry for each account, card or ID.',
+        'Copy or fill it when you need it.',
+        isAndroid
+          ? 'Use the Vault keyboard to fill other apps.'
+          : `Press ${describeHotkey(settings.manualFillHotkey)} in any app to fill.`,
+        'Let it lock itself.',
+        ...(biometricAvailable
+          ? [
+              isAndroid
+                ? 'Turn on biometric unlock to open it faster.'
+                : 'Turn on Windows Hello to open it faster.',
+            ]
+          : []),
+        ...(driveConfigured ? ['Turn on Google Drive to use it on more than one device.'] : []),
+        'Export a backup copy now and then.',
+      ],
+    },
+    {
+      title: 'What it isn’t',
+      lines: [
+        'Each person has their own vault. Nothing is shared.',
+        'No accounts, no servers, no tracking.',
+      ],
+    },
+  ];
+
+  return (
+    <Section title="About">
+      <Row label="Vault" hint={`Version ${__APP_VERSION__}`}>
+        <button className="btn-secondary" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Close' : 'About'}
+        </button>
+      </Row>
+
+      {open && (
+        <div className="space-y-4 px-3 py-3">
+          {groups.map((group) => (
+            <div key={group.title}>
+              <h3 className={`text-sm font-medium ${isAndroid ? 'text-[#d6e4ef]' : 'text-vault-fg'}`}>
+                {group.title}
+              </h3>
+              <ul
+                className={`mt-1 space-y-0.5 text-sm ${
+                  isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'
+                }`}
+              >
+                {group.lines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Row
+        label="Show tips again"
+        hint={reset ? 'Tips reset.' : 'See the first-run tips once more.'}
+      >
+        <button
+          className="btn-secondary"
+          disabled={reset}
+          onClick={() => {
+            setReset(true);
+            void resetTips();
+          }}
+        >
+          Reset
+        </button>
+      </Row>
+    </Section>
   );
 }
 
@@ -280,11 +403,77 @@ function ExportVault() {
           </p>
         )}
         {result?.kind === 'shared' && (
-          <p className={`mt-1 text-xs ${isAndroid ? 'text-[#d6e4ef]/50' : 'text-vault-muted'}`}>
+          <p className={`mt-1 text-xs ${isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'}`}>
             Choose a destination to finish saving it.
           </p>
         )}
         {error && <p className="mt-1 text-xs text-bad">Could not export the vault.</p>}
+      </div>
+    </Row>
+  );
+}
+
+/**
+ * Android only — the counterpart of Windows' `ManualFillHotkeyRow`: Vault's
+ * own fill keyboard (`VaultIme`). Android gives an app no way to turn a
+ * keyboard on itself, so "Turn on" opens the system keyboard list and the
+ * person flips it on there. The status is re-read whenever the app comes
+ * back to the foreground, so the row updates as soon as they return.
+ * Leaving for that screen doesn't lock the vault — only the idle timer does.
+ */
+function VaultKeyboardRow() {
+  const { platform } = useApp();
+  const [status, setStatus] = useState<KeyboardStatus | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void platform.keyboardStatus().then((next) => {
+        if (!cancelled) setStatus(next);
+      });
+    };
+    refresh();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [platform]);
+
+  if (!status?.available) return null;
+
+  const open = async () => {
+    setError(false);
+    try {
+      await platform.openKeyboardSettings();
+    } catch {
+      setError(true);
+    }
+  };
+
+  return (
+    <Row
+      label="Vault keyboard"
+      hint={
+        status.enabled
+          ? 'On. Switch to it with the globe key.'
+          : "Fill other apps from Vault's own keyboard."
+      }
+    >
+      <div className="text-right">
+        <button
+          className={status.enabled ? 'btn-secondary' : 'btn-primary'}
+          onClick={() => void open()}
+        >
+          {status.enabled ? 'Manage' : 'Turn on'}
+        </button>
+        {error && (
+          <p className="mt-1 max-w-[16rem] text-xs text-bad">Could not open keyboard settings.</p>
+        )}
       </div>
     </Row>
   );
@@ -396,22 +585,6 @@ function ManualFillHotkeyRow() {
       </div>
     </Row>
   );
-}
-
-function describeHotkey(combo: HotkeyCombo): string {
-  const parts: string[] = [];
-  if (combo.ctrl) parts.push('Ctrl');
-  if (combo.alt) parts.push('Alt');
-  if (combo.shift) parts.push('Shift');
-  if (combo.meta) parts.push('Win');
-  parts.push(describeCode(combo.code));
-  return parts.join('+');
-}
-
-function describeCode(code: string): string {
-  if (code.startsWith('Key')) return code.slice(3);
-  if (code.startsWith('Digit')) return code.slice(5);
-  return code;
 }
 
 function ChangeMasterPassword() {
@@ -577,8 +750,10 @@ function RestoreBackupRow() {
           label="Restore from backup"
           hint="A copy is kept from before the first change in each session."
         >
+          {/* Named by what it does, not "Restore" — the row below has its
+              own button for replacing the vault, one under the other. */}
           <button className="btn-secondary" onClick={() => setConfirming(true)}>
-            Restore
+            Undo session
           </button>
         </Row>
       )}
@@ -673,7 +848,7 @@ function RestoreVaultRow() {
         hint="Replace this device's vault with a file from local storage or Google Drive."
       >
         <button className="btn-secondary" onClick={() => setStep('choose')}>
-          Restore
+          Replace…
         </button>
       </Row>
     );
@@ -701,6 +876,13 @@ function RestoreVaultRow() {
               Google Drive
             </button>
           </div>
+          {/* Said on screen, not only in the button's `title` — touch never
+              shows a tooltip. */}
+          {!driveConnected && (
+            <p className={`mt-2 text-xs ${isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'}`}>
+              Connect Google Drive first.
+            </p>
+          )}
           <button className="btn-ghost mt-2 w-full" onClick={reset}>
             Cancel
           </button>
@@ -713,12 +895,12 @@ function RestoreVaultRow() {
             Choose a file to restore:
           </p>
           {working && (
-            <p className={`mt-2 text-xs ${isAndroid ? 'text-[#d6e4ef]/50' : 'text-vault-muted'}`}>
+            <p className={`mt-2 text-xs ${isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'}`}>
               Loading…
             </p>
           )}
           {!working && driveFiles?.length === 0 && (
-            <p className={`mt-2 text-xs ${isAndroid ? 'text-[#d6e4ef]/50' : 'text-vault-muted'}`}>
+            <p className={`mt-2 text-xs ${isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'}`}>
               No vault files found in Drive.
             </p>
           )}
@@ -733,7 +915,7 @@ function RestoreVaultRow() {
                     <span className="block truncate">{file.name}</span>
                     {file.modifiedTime && (
                       <span
-                        className={`block text-xs ${isAndroid ? 'text-[#d6e4ef]/50' : 'text-vault-muted'}`}
+                        className={`block text-xs ${isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'}`}
                       >
                         {new Date(file.modifiedTime).toLocaleString()}
                       </span>
@@ -782,11 +964,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   const isAndroid = platform.isAndroid;
   return (
     <section>
-      {/* `text-primary/50` — the exact color/weight Home's OWN section
-          headers use (`EntryList.tsx`'s category labels), on both
-          platforms; that value is already shared across platforms there,
-          so no `isAndroid` fork is needed here either. */}
-      <h2 className="mb-1.5 px-1 text-xs font-medium uppercase tracking-wide text-primary/50">
+      {/* Was `text-primary/50` (Home's category labels), which is under
+          AA here: 2.6:1 on Android, 2.9:1 on Windows. Now Home's foreground
+          at 70% (6.1:1) and `vault-muted` (6.3:1). */}
+      <h2
+        className={`mb-1.5 px-1 text-xs font-medium uppercase tracking-wide ${
+          isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'
+        }`}
+      >
         {title}
       </h2>
       {/* Windows: `vault-shelf` fill + `hairline` border/dividers — the same
@@ -829,7 +1014,7 @@ function Row({
       <div className="min-w-0 flex-1">
         <div className={`text-sm ${isAndroid ? 'text-[#d6e4ef]' : 'text-vault-fg'}`}>{label}</div>
         {hint && (
-          <div className={`mt-0.5 text-xs ${isAndroid ? 'text-[#d6e4ef]/50' : 'text-vault-muted'}`}>
+          <div className={`mt-0.5 text-xs ${isAndroid ? 'text-[#d6e4ef]/70' : 'text-vault-muted'}`}>
             {hint}
           </div>
         )}

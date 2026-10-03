@@ -48,13 +48,15 @@ const TABS: { name: TabName; label: string; Icon: typeof HomeIcon }[] = [
  * read as two fully independent buttons with no shared housing at all,
  * which turned out to be wrong).
  *
- * `+` still docks at the channel's own right end, but as the reference's
- * own glossy gradient button (`#bb8c7a`→`#ac6e55`, bordered, two-layer
- * drop-shadow — literally the same shadow recipe `Unlock.tsx`'s two
- * buttons already use, see that file) rather than a flat `--vault-accent`
- * fill — this Figma frame turns out to share `Unlock.tsx`'s older design
- * system rather than the flat vault-shelf one (see `EntryList.tsx`'s row
- * card doc for the fuller version of that finding).
+ * `+` still docks at the channel's own right end, as the reference's own
+ * glossy gradient button shape (bordered, two-layer drop-shadow — the same
+ * shadow recipe `Unlock.tsx`'s two buttons use) rather than a flat
+ * `--vault-accent` fill — this Figma frame shares `Unlock.tsx`'s older
+ * design system rather than the flat vault-shelf one (see `EntryList.tsx`'s
+ * row card doc). Its colors are the entry-creation flow's soft coral — the
+ * IME new-entry panel's Save/Generate gradient, `#D6B0A0`→`#BC907E` — so
+ * "+" matches the screens it opens (`docs/ENTRY-CREATION-PALETTE-DESIGN.md`).
+ * It was a stronger `#bb8c7a`→`#ac6e55`.
  */
 export function BottomTabBar({
   active,
@@ -131,14 +133,11 @@ export function BottomTabBar({
         })}
       </nav>
 
-      {/* `text-[#241a16]`, not the earlier `#2b1c15` guess — same
-          exported-asset problem as the Lock/Settings icons (see
-          `VaultScreen.tsx`'s own doc): confirmed by rendering the actual
-          PNG and sampling it, which found one dominant dark value
-          (`rgb(36,26,22)`, ~3500 pixels) in the glyph's own region. */}
+      {/* The glyph is the creation flow's dark warm grey, `#2A2725`
+          (5.25:1 on the gradient's darker stop). */}
       <button
         type="button"
-        className="flex h-14 w-[60px] shrink-0 items-center justify-center rounded-[12px] border border-[#b98d7c] bg-gradient-to-b from-[#bb8c7a] to-[#ac6e55] text-[#241a16] shadow-[0_2px_4px_rgba(0,0,0,.35),0_1px_1px_rgba(0,0,0,.2)] transition-transform duration-vault-press ease-vault-snap active:translate-y-[2px]"
+        className="flex h-14 w-[60px] shrink-0 items-center justify-center rounded-[12px] border border-[#C9A291] bg-gradient-to-b from-[#D6B0A0] to-[#BC907E] text-[#2A2725] shadow-[0_2px_4px_rgba(0,0,0,.35),0_1px_1px_rgba(0,0,0,.2)] transition-transform duration-vault-press ease-vault-snap active:translate-y-[2px]"
         onClick={onAdd}
         aria-label="Add entry"
         title="Add entry"

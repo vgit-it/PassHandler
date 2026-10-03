@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A struck-through eye, transcribed 1:1 from `EyeOffIcon` — the IME detail view's "hide value" button.
+  Drawn on the shared 24x24, 1.8px-stroke grid of `src/ui/components/icons.tsx`.
+  The `#E2E6EA` color is a placeholder: call sites apply their own tint.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M3 3l18 18"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M10.6 6.2A9.9 9.9 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1 -3.2 3.8"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M6.5 8.3A16.6 16.6 0 0 0 2 12s3.5 6 10 6a9.7 9.7 0 0 0 3.6 -0.7"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

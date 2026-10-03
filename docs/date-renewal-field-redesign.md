@@ -37,7 +37,8 @@ The renewal field's value can be set three ways:
   confirmation — the value is being actively edited, unlike the bug this
   replaced, where the overwrite target wasn't visible.
 - **Via the "Calculate…" panel** (`CalculatorPanel`, inside
-  `DateFieldWithRenewal.tsx`) — the actual fix. It presents an explicit
+  `DateFieldWithRenewal.tsx`), opened by a bordered secondary button below
+  the renewal field — the actual fix. It presents an explicit
   choice between two anchors, each showing the *real resolved date*, not
   just the word "today" or "this entry's date":
   - **This entry's date** — `isoToDisplay(originalValue)`, only offered when

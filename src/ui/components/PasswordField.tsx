@@ -163,7 +163,7 @@ export function PasswordField({
         <input
           id={id}
           className={`field font-mono tabular-nums tracking-wide transition-shadow duration-300 ${
-            justLanded ? 'shadow-[0_0_0_3px_rgba(74,158,224,0.35)]' : ''
+            justLanded ? 'shadow-[0_0_0_3px_rgb(var(--accent)/0.35)]' : ''
           }`}
           type={revealed ? 'text' : 'password'}
           value={animating ? displayValue : value}

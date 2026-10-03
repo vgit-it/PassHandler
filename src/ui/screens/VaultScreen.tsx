@@ -6,16 +6,19 @@ import { EntryField, VaultEntry } from '../../vault/types';
 import { SyncBadge } from '../components/SyncBadge';
 import { HomeScreenLogo } from '../components/HomeScreenLogo';
 import { ShelfOriginPanel } from '../components/ShelfOriginPanel';
+import { TipCard } from '../components/TipCard';
 import { VaultFrame } from '../components/VaultFrame';
 import { AlertIcon, BackIcon, LockIcon, SettingsIcon } from '../components/icons';
 import { useClipboard } from '../hooks/useClipboard';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
+import { useTipSequence } from '../hooks/useTipSequence';
 import { useUnlockReveal } from '../hooks/useUnlockReveal';
 import {
   ANDROID_HEADER_HEIGHT_PX,
   HEADER_ENTER_DELAY_MS,
   HEADER_ENTER_MS,
   REVEAL_LIGHT_FROM_OPACITY,
+  UNLOCK_SEQUENCE_MS,
 } from '../lockTransitionTiming';
 import { Platform } from '../../platform/ports';
 import { SyncSnapshot } from '../../sync/types';
@@ -183,9 +186,9 @@ export function VaultScreen() {
     lock();
   }, [clearNow, lock]);
 
-  // Shared by `ListView`'s own FAB (Windows, and Android when the tab bar
-  // isn't showing — e.g. mid pick-mode) and the "add entry" button docked
-  // beside the Android tab bar below, per the Figma home-screen design.
+  // Shared by `ListView`'s own FAB (Windows only — `EntryList.tsx` renders
+  // it only when not on Android) and the "add entry" button docked beside
+  // the Android tab bar below, per the Figma home-screen design.
   const openAddEntry = useCallback(() => {
     setPickMode(false);
     setPickEntryId(null);
@@ -363,6 +366,32 @@ export function VaultScreen() {
   // animation. Edit/Settings still replace the whole frame, tab bar and all.
   const showTabBar = platform.isAndroid && baseTab !== null;
 
+  // First-run tips (`docs/ONBOARDING-TIPS-DESIGN.md`). Never mid-motion:
+  // they wait out the unlock sequence (this screen mounts once per unlock)
+  // and the reveal. Not in Windows pick mode — that's a fill in progress.
+  // Stays mounted under an open detail box, for the same reason the tab bar
+  // does (see above): removing it would change the content area's height
+  // mid-animation.
+  const [tipsSettled, setTipsSettled] = useState(false);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setTipsSettled(true), UNLOCK_SEQUENCE_MS);
+    return () => window.clearTimeout(timeout);
+  }, []);
+  const tipsReady = tipsSettled && !revealing && !pickMode;
+  const homeTip = useTipSequence('home', tipsReady && baseTab === 'list');
+  const upcomingTip = useTipSequence('upcoming', tipsReady && baseTab === 'upcoming');
+  const frameTip = homeTip ?? upcomingTip;
+  // Android: the top of the frame interior, so the search band and tab bar
+  // below the list stay the one continuous control panel the Figma design
+  // draws them as (`BottomTabBar.tsx`'s doc); the list there is
+  // bottom-anchored anyway, so the top is its least-used space. Windows:
+  // the bottom, beside the floating "+" the first tip names.
+  const tipSlot = frameTip && (
+    <div className={`shrink-0 px-3 ${platform.isAndroid ? 'pt-3' : 'pb-3'}`}>
+      <TipCard key={baseTab} tip={frameTip} />
+    </div>
+  );
+
   // Dimmed while either box is open, and un-dimmed the moment its close
   // starts (not once it ends), so the list brightens in step with the box
   // shrinking back into it (`docs/vault-visual-language-spec.md` §4.6).
@@ -449,6 +478,7 @@ export function VaultScreen() {
             justUnlocked={justUnlockedRef.current}
           />
           <VaultFrame radialWall={platform.isAndroid} transparentBezel={platform.isAndroid}>
+            {platform.isAndroid && tipSlot}
             {/* The content area — `flex-1`, so `BottomTabBar` below it (a
                 real sibling, not an overlay) keeps its own space rather
                 than being drawn over. `isolate` keeps everything inside it
@@ -476,6 +506,8 @@ export function VaultScreen() {
                 />
               )}
             </div>
+
+            {!platform.isAndroid && tipSlot}
 
             {showTabBar && (
               // Inside `VaultFrame` now (per request) — a real flex sibling
@@ -784,10 +816,12 @@ function VaultHeaderBar({
             // `#65727f`→`#525d68`/`#727272` at first implementation, a
             // visibly bluer, lighter grey than this darker, more neutral
             // one), a soft drop shadow, 5px radius rather than the flat
-            // `#242C34`/10px pill this replaces — `px-3`/`.btn-ghost`'s own
-            // `py-3` already total exactly 44×44 around a 20px icon with no
-            // explicit size needed, so this only swaps chrome, not
-            // dimensions. The icon stays pure white either way (see its own
+            // `#242C34`/10px pill this replaces. Sized explicitly (`h-11 w-11
+            // p-0`, 44×44 including the 1px border), the same box as
+            // `Unlock.tsx`'s top-bar copies: `.btn-ghost`'s padding alone
+            // made it 46×46 once the border was added, which grew this
+            // header past `ANDROID_HEADER_HEIGHT_PX` to 70px and dropped
+            // Home's frame 2px below the lock screen's. The icon stays pure white either way (see its own
             // doc below) — nothing suggested the glyph itself changed, and
             // white still reads cleanly against this darker background,
             // if anything with more contrast than before.
@@ -806,7 +840,7 @@ function VaultHeaderBar({
             // reading the class names side by side, but obvious once
             // actually measured. Dropping it makes both pills sit the same
             // 20px off their respective edges.
-            className="btn-ghost rounded-[5px] border border-[#565656] bg-gradient-to-b from-[#3f454a] to-[#32373d] px-3 shadow-[0_0_4.3px_rgba(0,0,0,.25)] hover:brightness-110"
+            className="btn-ghost h-11 w-11 rounded-[5px] border border-[#565656] bg-gradient-to-b from-[#3f454a] to-[#32373d] p-0 shadow-[0_0_4.3px_rgba(0,0,0,.25)] hover:brightness-110"
             onClick={onLock}
             aria-label="Lock vault"
             title="Lock vault"
@@ -837,12 +871,10 @@ function VaultHeaderBar({
               rounded) needed no other change to stay centered. */}
           <HomeScreenLogo className="pointer-events-none absolute left-1/2 top-1/2 h-[42px] w-auto -translate-x-1/2 -translate-y-1/2" />
           <button
-            // `px-3`, not the old edge-flush `pr-1` — that nudged the bare
-            // icon toward the true screen edge, but now that the icon sits
-            // in its own visible pill (per request), symmetric padding is
-            // what keeps it centered in that box; `ml-auto` alone still
-            // pushes the whole pill to the header's right edge.
-            className="btn-ghost ml-auto rounded-[5px] border border-[#565656] bg-gradient-to-b from-[#3f454a] to-[#32373d] px-3 shadow-[0_0_4.3px_rgba(0,0,0,.25)] hover:brightness-110"
+            // Same fixed 44×44 box as the Lock button (see its doc); `.btn`'s
+            // own flex centering keeps the icon centered in it, and
+            // `ml-auto` pushes the whole pill to the header's right edge.
+            className="btn-ghost ml-auto h-11 w-11 rounded-[5px] border border-[#565656] bg-gradient-to-b from-[#3f454a] to-[#32373d] p-0 shadow-[0_0_4.3px_rgba(0,0,0,.25)] hover:brightness-110"
             onClick={onSettings}
             aria-label="Settings"
             title="Settings"

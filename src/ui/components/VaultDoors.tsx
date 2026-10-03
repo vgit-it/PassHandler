@@ -80,11 +80,10 @@ export function VaultDoors() {
   // happens immediately on a real unlock, well before the doors have
   // actually moved). Flipping this the instant `phase` changes instead
   // would yank the still-motionless, still-shut doors to a new height with
-  // no transition to soften it — genuinely visible, unlike the pre-existing,
-  // already-accepted "known remaining seam" (`docs/vault-visual-overhaul-
-  // plan.md` §6a) this project tolerates for the handoff into
-  // `VaultHeaderBar`'s own (variable, unmeasured) height once this flag
-  // goes false.
+  // no transition to soften it. Once it does go false, the doors are fully
+  // open and off-screen, so their height no longer shows — except during the
+  // auto-lock creep, where they start at the bare margin behind
+  // `VaultHeaderBar` rather than below it.
   const [unlockTopBarShowing, setUnlockTopBarShowing] = useState(!isUnlocked);
   const prevPhase = useRef<Phase>(phase);
   const reducedMotion = usePrefersReducedMotion();
@@ -254,11 +253,8 @@ export function VaultDoors() {
     // the doors' own height matches the *container* sitting below
     // `Unlock.tsx`'s top bar, not the full screen behind that bar too (see
     // that flag's own doc above for the timing this switches on). No
-    // equivalent adjustment for `VaultHeaderBar`'s own height once this
-    // flag goes false — that pre-existing gap (`VaultDoors` has no way to
-    // measure that bar's real, variable height) is the "known remaining
-    // seam" `docs/vault-visual-overhaul-plan.md` §6a already documents,
-    // unrelated to today's change.
+    // equivalent adjustment for `VaultHeaderBar`'s height once this flag
+    // goes false (see that doc for the one case where it shows).
     <div
       className="pointer-events-none fixed z-40"
       style={{

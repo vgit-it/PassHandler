@@ -47,13 +47,9 @@ spec or from the prior (stale) proposal.
   real Android app has since drifted away from. Don't apply that table;
   it's kept in place there as history, not as a live target.
 - **The stale in-code references** this document's own audit found:
-  `VaultKeyboardView.kt`'s `AVATAR_COLORS`/`avatarColorFor` doc comments
-  cited `EntryList.tsx`'s `AVATAR_COLORS`/`avatarColor`, and
-  `ic_globe.xml`'s comment cited `EntryPeg.tsx` — both renamed/deleted
-  since. Comments already corrected (to cite `pegColor`/`PEG_COLORS`/
-  `PEG_FOREGROUND`, the real current mechanism) as part of this doc pass;
-  the color *values* they describe are still old, and are this document's
-  actual subject.
+  `VaultKeyboardView.kt`'s avatar comments and `ic_globe.xml`'s comment
+  cited components since renamed or deleted. Both now cite the app's
+  neutral plate (see "Avatar / peg plates").
 
 ## Source tracking (already fixed, prerequisite to everything below)
 
@@ -86,7 +82,7 @@ Everything is built with classic Android Views —
 `LinearLayout`/`FrameLayout`/`TextView`/`Button`, constructed and
 `addView`'d by hand in one 2652-line file. No XML layouts, no Compose (zero
 `@Composable`, zero Compose Gradle dependency). Shapes come from three
-helpers (`filledRoundedRect`/`strokedRoundedRect`/`filledOval`) called with
+helpers (`filledRoundedRect`/`strokedRoundedRect`/`filledOval` — the last since removed, when icons became rounded squares) called with
 a radius per call site — there is no shared "this is what a button looks
 like" recipe the way the web app's gradient-pill class is reused everywhere
 it appears. Typography is plain system `Typeface` (Roboto), not the web
@@ -129,11 +125,11 @@ pass doesn't spend effort "fixing" something already correct.
 | `BORDER` | `#1E3457` | `#4d5761` | `Unlock.tsx:412`, `VaultDoors.tsx:279` — field/door borders. **Note: a second, distinct border tone exists and isn't in the old model at all** — `#565656`, used only on gradient-pill buttons (see chrome recipe above) |
 | `SECONDARY` | `#1A2D44` | *(retired — see below)* | was "the neutral fill every key uses"; every button-shaped key becomes a gradient-pill per the chrome decision above, so there's no flat "secondary fill" left to map it to |
 | `SECONDARY_FOREGROUND` | `#B8CEDF` | `#d6e4ef` | ubiquitous across every Android screen — `EntryList.tsx`, `Unlock.tsx`, `EntryDetail.tsx`, `Settings.tsx`, all cite this exact hex directly |
-| `MUTED_FOREGROUND` | `#6B90B0` | `#d6e4ef` @ 50% (`#80D6E4EF`) | same family, not a separate hue — every "muted" text on Android is `text-[#d6e4ef]/50`, never a different color |
+| `MUTED_FOREGROUND` | `#6B90B0` | `#d6e4ef` @ 60% (`#99D6E4EF`) | same family, not a separate hue, as every "muted" text on Android — but 60%, not the app's `/50`: at 50% the IME's 11–12sp labels failed WCAG AA (4.11:1 / 3.90:1). Deliberate departure from parity, see `IME-UX-IMPROVEMENT-PLAN.md` D8 |
 | `FOREGROUND` | `#D6E4EF` | `#D6E4EF` | **no change** — already correct, coincidentally |
-| `PLACEHOLDER` | `#80D6E4EF` | `#80D6E4EF` | **no change** — already `FOREGROUND` @ 50%, matches the pattern above directly |
+| `PLACEHOLDER` | `#80D6E4EF` | `#99D6E4EF` | same value and reason as `MUTED_FOREGROUND` |
 | `SUCCESS` | `#4ADE80` | `#4ADE80` | **no change** — matches `tailwind.config.js`'s `ok` token (`#4ade80`) exactly; verify at implementation time which real Android element (if any) is the true visual reference, since the app also has a *second*, more muted green (`--vault-ok`, `#6fbf8b`) in the newer token system that this does **not** match |
-| `ACCENT` / `ACCENT_FOREGROUND` | `#4A9EE0` / `#0C1827` | **retired — see `ADD_ENTRY_*`** | Resolved during implementation: the real app's own "Add entry" button (`BottomTabBar.tsx:138`) is a warm copper/coral gradient (`#bb8c7a`→`#ac6e55`, border `#b98d7c`, text `#241a16`), not blue — and `#241a16` is the exact same hex as this file's own `CREATE_BG`/`CREATE_ACCENT_TEXT`, tying "Add Entry" to the coral create-flow identity it actually leads into. Not a guess. |
+| `ACCENT` / `ACCENT_FOREGROUND` | `#4A9EE0` / `#0C1827` | **retired** (and `ADD_ENTRY_*` after it — the keypad now has no accent key) | Resolved during implementation: the real app's own "Add entry" button (`BottomTabBar.tsx:138`) is a warm copper/coral gradient (`#bb8c7a`→`#ac6e55`, border `#b98d7c`, text `#241a16`), not blue — and `#241a16` is the exact same hex as this file's own `CREATE_BG`/`CREATE_ACCENT_TEXT`, tying "Add Entry" to the coral create-flow identity it actually leads into. Not a guess. |
 
 `BORDER`'s old single-tone model doesn't survive contact with the real app
 cleanly — there are two border tones now (`#4d5761` general, `#565656`
@@ -148,17 +144,15 @@ was a deliberate, sampled design choice (see "current IME" above), not a
 leftover — but its buttons move onto the same gradient-pill recipe as
 everywhere else, recolored in the coral family instead of the neutral one.
 
-The existing `CREATE_*` hex values (`CREATE_BG #241A16`, `CREATE_BORDER
-#4A352D`, `CREATE_ACCENT #E0A087`, `CREATE_ACCENT_TEXT #241A16`,
-`CREATE_MUTED #A8887C`, `CREATE_CHEVRON #A7A3A2`, `CREATE_FG #FFFFFF`) are
-kept as the base identity — no reason to re-sample a palette that was
-already deliberately chosen and is still correct as a *hue family*. What
+The `CREATE_*` hex values keep the panel's coral *hue family* as its
+identity. They have since been muted — same hue, about half the
+saturation (`IME-CREATE-PALETTE-MUTE-PLAN.md` has the current values). What
 changes is structural, not chromatic: `createPillButton`
 (`CREATE_ACCENT`-filled, currently a flat `filledRoundedRect`) and the
 smaller `CREATE_ACCENT`-stroked button become two-stop coral gradients with
 a border and shadow, mirroring the neutral recipe's shape exactly —
-lighter-to-darker coral (e.g. a lightened/darkened pair derived from
-`CREATE_ACCENT #E0A087`) in place of `#3f454a`→`#32373d`, border derived
+lighter-to-darker coral (a lightened/darkened pair derived from
+`CREATE_ACCENT`) in place of `#3f454a`→`#32373d`, border derived
 from `CREATE_BORDER` in place of `#565656`. Exact gradient stops are an
 implementation detail to pick and eyeball via `VaultImePreviewActivity`
 (the existing debug harness for exactly this), not something to freeze here
@@ -172,39 +166,18 @@ in the abstract.
 | Fields / result rows / cards | 8 | 10px, matching `EntryList.tsx`'s search field and `EntrySiteIcon`'s icon box (`rounded-[10px]`), `Unlock.tsx`'s password field (`rounded-[10px]`) |
 | Modal-scale containers (if any apply — none currently do; noted for completeness) | — | 20px, matching `Unlock.tsx`'s login-panel modal (`rounded-[20px]`) |
 
-The 2dp handle-grip and the search-box pill's existing 20dp are unrelated
-decorative/legacy uses — not part of this button/field/card system, left
-alone unless implementation finds a reason to fold them in.
+The search-box pill's existing 20dp is an unrelated legacy use — not part
+of this button/field/card system, left alone unless implementation finds a
+reason to fold it in.
 
-## Avatar / peg colors
+## Avatar / peg plates
 
-`AVATAR_COLORS`'s six Tailwind hues approximate a component that no longer
-exists. The real current mechanism, `EntryList.tsx`'s `pegColor`/
-`PEG_COLORS`/`PEG_FOREGROUND`:
-
-```
-PEG_COLORS = [
-  '#c9835f', // terracotta
-  '#c7a23f', // brass
-  '#8caf5f', // moss
-  '#5fac93', // teal-green
-  '#9a8fc9', // steel violet
-  '#c97ba3', // rose plum
-  '#9aa3ad', // slate
-  '#c9955f', // ochre amber
-]
-PEG_FOREGROUND = '#0a0d10'
-hash = (hash * 31 + charCode) — same per-character accumulation, just JS's
-  `>>> 0` vs. Kotlin's `Int` overflow, so the two hashes won't be
-  bit-for-bit identical — cosmetic, not a correctness issue (same note the
-  in-code comment already carries).
-```
-
-Target: replace `AVATAR_COLORS`' six entries with these eight (text color
-becomes the single `PEG_FOREGROUND`, not per-entry — the current
-`Pair<Int,Int>` scheme with a separate light text tone per hue has no
-equivalent in the web version, which always draws `PEG_FOREGROUND` on top
-regardless of the background hue).
+The IME's result-row plates match the app's (`EntryList.tsx`'s
+`PEG_FILL`/`pegForeground`, `docs/vault-visual-language-spec.md` §4.2): one
+neutral plate for every entry — white at 7% — with Home's `#d6e4ef` glyph at
+75% (`PEG_FILL`/`PEG_FOREGROUND`/`PEG_FOREGROUND_ALPHA` in
+`VaultKeyboardView.kt`). No per-entry colour and no hash; a favicon, when
+the app has one, replaces the plate.
 
 ## Typography and icons — flagged, not resolved here
 
@@ -251,33 +224,36 @@ regardless of the background hue).
    call sites (`smallActionButton`, the locked-state "Unlock Vault"
    button, every keypad key via `specialKey`) moved to `gradientPill`.
    `ACCENT`/`ACCENT_FOREGROUND` retired in favor of `ADD_ENTRY_*` (see the
-   table's own resolution note).
+   table's own resolution note) — themselves retired later, when "Add
+   entry" became a key-sized "+" key (`IME-UX-REVIEW.md` C5), now with only
+   a faint coral tint (`IME-CONTROLS-REFINEMENT-PLAN.md` "The + key").
 3. ✅ `CREATE_*` button call sites (the "✓" header button, `createPillButton`,
    `strokedRoundedRect` on the "✕") moved to `gradientPill`/updated radii;
-   panel background/text/border constants themselves unchanged, per the
-   "keep coral" decision. New `CREATE_GRADIENT_TOP`/`CREATE_GRADIENT_BOTTOM`
-   (`#e8b49c`/`#cf8a6c`) are a lightened/darkened derivation from
-   `CREATE_ACCENT`, **not** independently sourced — there's no reference
-   screenshot for a gradient state of this color. Eyeball these first
-   against `VaultImePreviewActivity` once a real build exists; adjust if
-   they read wrong, nothing else depends on the exact stops.
-4. ✅ `AVATAR_COLORS` (six Tailwind hues, per-hue text pair) replaced by
-   `PEG_COLORS`/`PEG_FOREGROUND` (the real eight-hue palette, one shared
-   foreground) — `avatarColorFor` renamed `pegColorFor`, returns a single
-   `Int` now instead of a `Pair`.
+   the palette itself was muted later (`IME-CREATE-PALETTE-MUTE-PLAN.md`). New
+   `CREATE_GRADIENT_TOP`/`CREATE_GRADIENT_BOTTOM` (now `#D6B0A0`/`#BC907E`)
+   are a lightened/darkened derivation from `CREATE_ACCENT`, **not**
+   independently sourced — there's no reference screenshot for a gradient
+   state of this color.
+4. ✅ Avatar plates match the app's neutral plate — see "Avatar / peg
+   plates".
 5. ✅ Corner radii aligned per the table — every button 5px (except
-   `createPillButton`, kept at its own screenshot-sourced 18dp pill shape
-   deliberately, not unified — see its own comment), fields/rows 10px.
+   `createPillButton`, kept at its own screenshot-sourced true-pill shape
+   deliberately, not unified — now 40dp tall with a 20dp radius, see its own
+   comment), fields/rows 10px.
 6. ✅ Icon audit — plus one real bug found and fixed along the way: `ic_globe.xml`
    was fully drawn and documented as "used by `buildAvatar` in place of a
    Login entry's first-letter initial," but nothing in `buildAvatar` ever
    actually checked `entry.type` — every entry, Login included, always got
    the letter fallback. Now branches on `entry.type == "login"` and shows
    the globe, matching the real app's own `EntrySiteIcon` fallback for
-   that exact case. Per-entry-type icons (card, note, wifi, …) for
-   non-Login entries — matching `EntrySiteIcon`'s *other* branch — would
-   mean transcribing a much larger icon set; left out as a separate,
-   larger piece of work, not attempted here.
+   that exact case. Since extended to full parity with `EntrySiteIcon`:
+   non-Login entries show their entry type's glyph (`ic_type_*.xml`, the
+   whole `entryTypeIcons.tsx` set transcribed), and a Login shows its site
+   favicon when the app has one — see `docs/MANUAL-FILL-DESIGN.md`'s
+   "Result-row icons". Plate and favicon are one shape, a 32dp rounded
+   square (the app's Android peg scaled down), and control glyphs that used
+   to be text characters (✕ ✓ ⌫ +) are vector drawables (`ic_close`,
+   `ic_check`, `ic_backspace`, `ic_plus`).
 7. ✅ Font bundling: **decided against, explicitly** (not silently skipped)
    — real Inter/JetBrains Mono files exist and bundling them is possible,
    but is its own separate decision (APK size, `res/font/` wiring) that
@@ -290,34 +266,33 @@ regardless of the background hue).
    and re-reading every changed call site substituted for a compiler; they
    cannot substitute for actually looking at the rendered result. Do this
    before considering the visual match itself confirmed.
-9. ✅ Follow-up after the initial pass (layout, not palette; item 8's
-   not-yet-built caveat covers it too): the DETAIL screen's field rows
-   (`buildDetailFieldRow`) now stack label → value → action chips *below*
-   the value, where they used to sit at the right edge, and
-   `smallActionButton`'s horizontal padding went 10dp → 20dp — 20dp of text
-   clearance either side, so the chips are visibly wider. Height (44dp),
-   radius (5dp), gradient recipe, elevation and the 6dp gap between chips are
-   as specified above; the coral create panel's `createPillButton` is
-   untouched. Eyeball the fullest chip row (Card Number: "Show", "Fill all",
-   "Split N/4") at a narrow phone width once a build exists. Behavior notes
-   for the same rows live in `docs/MANUAL-FILL-DESIGN.md`'s "Detail-view
-   field rows — current layout and fill feedback".
+9. ✅ Superseded layout: the DETAIL and create screens' field rows are
+   now card rows — label and value on the left, actions in a column on the
+   right, one rounded card per screen — with every action button outside
+   the keypad a pill and keys 5dp rectangles. Spec and as-built notes:
+   `docs/IME-DETAIL-CREATE-VISUAL-PASS.md`. Behavior notes for the detail
+   rows live in `docs/MANUAL-FILL-DESIGN.md`'s "Detail-view field rows —
+   current layout and fill feedback".
 10. ✅ Follow-up, top bar (`buildTopBar`), same not-yet-built caveat as
     item 8: the Lock and Clear buttons now use the same gradient pill as
-    every other button (`gradientPill`, 5dp radius, `BUTTON_ELEVATION_DP`),
+    every other button (`gradientPill`, 8dp corners, `BUTTON_ELEVATION_DP`),
     i.e. the main app's Android home-header button recipe
-    (`VaultScreen.tsx`: `#3f454a` to `#32373d`, `#565656` border, itself
-    44 by 44). Their size is unchanged, so each pill fills the 44dp bar
-    top to bottom, with no breathing room above or below like the home
-    header has; grow `TOP_BAR_HEIGHT_DP` if that looks cramped on device.
-    Lock keeps its `SUCCESS`-tinted icon (the IME's "unlocked" signal, the
-    home header uses plain white); Clear's label moved from
+    (`VaultScreen.tsx`: `#3f454a` to `#32373d`, `#565656` border). Each
+    pill is drawn 32dp tall inside a 40dp tap area — the IME's own
+    touch-target floor, see `docs/ime-ux-redesign-proposal.md`'s "Touch
+    targets" — with 6dp of the 44dp bar showing above and below it (both
+    at least 40dp wide). Lock is a padlock plus a "Lock"
+    label, tinted `SECONDARY_FOREGROUND` like the home header's plain
+    white-ish icons — it was icon-only and `SUCCESS`-tinted as an "unlocked"
+    signal, which read as a green *locked* padlock (`IME-UX-REVIEW.md` C7).
+    Clear's label moved from
     `MUTED_FOREGROUND` to `SECONDARY_FOREGROUND` since a filled pill has no
-    "quiet" state. The centered logo is now the home-screen wordmark:
-    `ic_home_logo.xml`, a 1:1 transcription of `HomeScreenLogo.tsx`
-    (keyhole `#8FADC7`, lettering `#b5c1cc`), drawn at the home header's own
-    101 by 42dp. `ic_vault_logo.xml` (keyhole on a navy plate) is left in
-    place but no code references it.
+    "quiet" state. The centre shows "Filling into <app>" when the calling
+    app's name is known (`IME-UX-IMPROVEMENT-PLAN.md` 3.2); otherwise the
+    home-screen wordmark, `ic_home_logo.xml`, a 1:1 transcription of
+    `HomeScreenLogo.tsx` (keyhole `#8FADC7`, lettering `#b5c1cc`), drawn at
+    the home header's own 101 by 42dp. `ic_vault_logo.xml` (keyhole on a
+    navy plate) is left in place but no code references it.
 11. ✅ **Built, not compiler-verified** — new create-panel controls (inline email list,
     expanded generator panel with length slider, class toggles, strength
     bar). They stay in the coral palette (this plan's "keep coral" decision):

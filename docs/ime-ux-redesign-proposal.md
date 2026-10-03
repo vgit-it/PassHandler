@@ -115,9 +115,8 @@ home for something global and screen-independent. The static "Unlocked"
 that calls `lockVault()` directly. This is a familiar pattern (a status
 indicator that's also the control — a mute icon, a connectivity icon) and
 puts Lock somewhere it's never sitting next to Clear-field, Fill, or
-anything else content-related. Keep the tap target's touchable area at least
-44dp even if the visible pill is smaller, same accessibility floor the
-current icon keys already meet via their row-height sizing.
+anything else content-related. Keep the tap target at or above the IME's
+touch-target floor — see "Touch targets" below.
 
 **Clear-field moves out of the keypad entirely and joins Lock in the top
 bar — not next to it, and not styled like it.** The keypad's own rows
@@ -166,7 +165,7 @@ first. A dedicated row costs a little fixed vertical space instead, but
 never overlaps anything inside the scroll. Also deliberately not folded
 into the top bar alongside Lock/Clear-field: that bar is compact and stays
 the same height regardless of `screen`, and the "+" button's own
-established 44dp touch target would force it taller just to fit a control
+touch target would force it taller just to fit a control
 that's only ever relevant on one screen anyway. `CARD` background, matching
 the results panel below it, so the strip reads as the top edge of one
 continuous list rather than a fourth separate bar of chrome.
@@ -181,17 +180,17 @@ a problem that wasn't raised.
 
 ## Net effect on each row
 
-- Top bar: `Vault` · small muted Clear-field icon · tappable
-  `🔒 Unlocked` pill (was: label + static "Unlocked" text only — Clear-field
-  is new here, moved off the keypad).
-- Search row: search pill only (was: search pill + "+").
-- New: a thin `CARD`-colored strip between the top bar and the results
-  list, holding just "+", visible only in `Screen.SEARCH`.
-- `spaceRow` (Screen.SEARCH default): space, full width (was: Lock / ✕ /
-  space).
-- `detailActionsRow`: "New search", full width (was: Lock / ✕ / "New
-  search").
-- `createActionsRow`: Cancel / Done (was: Lock / ✕ / Cancel / Done).
+What this section proposed was later superseded in its details (see the
+"Revision" section below); what's built today:
+
+- Top bar: Lock · "Filling into Netflix" (wordmark when unknown) ·
+  Clear.
+- Search row: the search box only, with a ✕ that clears the query.
+- `spaceRow` (`Screen.SEARCH`): a globe (switch keyboard), space, and a
+  "+" key with a faint coral tint.
+- `detailActionsRow` (`Screen.DETAIL`): "Back to results", full width.
+- `Screen.CREATE`: no keypad row at all — Cancel (✕) and Save live in the
+  panel's own header.
 
 Every action row in the keypad now does exactly one kind of thing — type
 into search, or navigate the picker's own screens. Lock and Clear-field
@@ -229,10 +228,28 @@ compiler or Android SDK in this sandbox. Every new API used
 long-standing (API 1/4 respectively), well under this app's
 `minSdkVersion = 26`. A machine brace/paren/bracket balance check ran clean
 across the changed file. The one part of this whole change worth double-
-checking on a real device: whether the top bar's fixed 40dp height and the
-Lock/logo/Clear-field clearances inside it actually render at the sizes
-requested (`FrameLayout` gravity/margin math is straightforward, but this
-sandbox can't render it).
+checking on a real device: whether the top bar's Lock/logo/Clear-field
+clearances actually render at the sizes requested (`FrameLayout`
+gravity/margin math is straightforward, but this sandbox can't render it).
+
+## Touch targets
+
+**The IME's touch-target floor is 40dp** (`MIN_TOUCH_TARGET_DP` in
+`VaultKeyboardView.kt`) — every tappable control in the keyboard is at
+least 40dp tall. This is an IME-only exception, by direct request: the main
+app keeps its ≥44px rule (`docs/vault-visual-language-spec.md` §7). The
+reason is the top bar: the user wanted visible clearance above and below
+the Lock/Clear buttons rather than buttons flush with the bar's edges, without
+growing the 44dp bar. The floor is the **tap area**, not the drawn shape:
+Lock and Clear are drawn 32dp tall (6dp of bar showing above and
+below) inside 40dp tap areas, by a later direct request
+(`IME-CONTROLS-REFINEMENT-PLAN.md` item 1); the fill-format switches use the same
+32-in-40 construction. Don't "fix" them back to 44dp, or shrink a tap
+area to its drawn size — both would undo decisions made on request. The keypad's keys are exactly 40dp — they
+were 42dp until the height they gave back went to the results region
+(`IME-UX-IMPROVEMENT-PLAN.md` 3.1) — and the search box is a 40dp field.
+Controls already taller (the detail view's 44dp `smallActionButton` chips)
+stay as they are; the floor is a minimum, not a target.
 
 ## Revision: a direct layout spec superseded the top-bar/"Add Entry" part
 
@@ -246,35 +263,37 @@ still what's built. What changed is the top bar's own contents and where
 
 - The "Vault" label and the "Unlocked" text are both gone from the
   top bar entirely — not just restyled.
-- The top bar is now a fixed 40dp (`TOP_BAR_HEIGHT_DP`), not `WRAP_CONTENT`.
-- Lock is icon-only now (no text), 20dp from the screen's left edge, 4dp
-  clearance above/below.
-- The vault logo (`R.drawable.ic_vault_logo` — the same mark the
-  login screen and app icon use, already in this project from an earlier,
-  separate request) sits dead center. Centering it precisely, independent
-  of however wide Lock/Clear-field end up, is why `buildTopBar` is a
-  `FrameLayout` now rather than the weighted `LinearLayout` described
-  above.
-- Clear-field is a text "Clear" label now, not the circled-X icon
-  (`ic_clear_field.xml` is still in the repo but no longer referenced from
-  Kotlin) — top right, 20dp from the screen's right edge, same 4dp
-  clearance as Lock.
-- **Superseded since (top-bar chrome only; the layout above still stands):**
-  the bar is 44dp now, not 40dp, and Lock/Clear are full-height 44dp boxes
-  with no 4dp clearance. Both are visible gradient pills — the same recipe
-  as the main app's Android home-header Lock/Settings buttons — instead of a
-  bare icon and bare text. The centered logo is the home-screen wordmark
-  (`R.drawable.ic_home_logo`, 101 by 42dp, same as `HomeScreenLogo`), not
-  `ic_vault_logo`, which no code references any more. See
+- The top bar is a fixed 44dp (`TOP_BAR_HEIGHT_DP`), not `WRAP_CONTENT`:
+  the 40dp Lock/Clear tap areas plus 2dp above and below each
+  (`TOP_BAR_BUTTON_CLEARANCE_DP`). Each is drawn as a 32dp rounded rectangle (8dp corners) inside its
+  tap area, so 6dp of bar shows above and below it. See "Touch targets"
+  below for why 40dp.
+- Lock is a padlock glyph plus a "Lock" label on a 32dp gradient rounded rectangle,
+  20dp from the screen's left edge, neutral tint (an icon-only green
+  padlock read as a *locked* state rather than a lock action —
+  `docs/IME-UX-REVIEW.md` C7).
+- The center shows **"Filling into Netflix"** — the calling app's name,
+  which confirms the fill target and gives "Recent"/"Suggested" their
+  meaning (`IME-UX-REVIEW.md` P10). When the name isn't known, the
+  home-screen wordmark (`R.drawable.ic_home_logo`, 101 by 42dp, the same
+  artwork and size as the main app's `HomeScreenLogo`) shows instead.
+  Centering either precisely, independent of however wide Lock/Clear end
+  up, is why `buildTopBar` is a `FrameLayout` rather than the weighted
+  `LinearLayout` described above. (`ic_vault_logo.xml` is still in the repo
+  but no code references it.)
+- Clear-field is a text "Clear" label on the same 32dp gradient shape
+  (40dp tap area, 40dp minimum width), not the circled-X icon (`ic_clear_field.xml`
+  is still in the repo but no longer referenced from Kotlin) — top right,
+  20dp from the screen's right edge, same clearance as Lock. For 5s
+  after a clear it reads "Undo" and types the wiped text back. Both pills
+  use the main app's Android home-header Lock/Settings button recipe — see
   `docs/ime-visual-parity-plan.md`, item 10.
-- "+"/"Add Entry" moved again — off the dedicated header row above the
-  results list, back onto `spaceRow` beside "space" (its original spot,
-  before `docs/ime-layout-v2-and-grab-design.md` first relocated it), now
-  labeled "Add Entry" on a rounded-rectangle key rather than a round "+".
-  `buildResultsHeaderRow` and `buildNewEntryButton` were both deleted —
-  `buildBottomActionRow`'s existing optional right-hand key (built for
-  Cancel/Done) already renders exactly this shape, so `spaceRow` just
-  passes `rightLabel = "Add Entry"` into that same, unchanged mechanism.
+- "Add entry" is a key-sized "+" key with a faint coral tint beside "space" on `spaceRow`
+  (plus a "Save new login for 'xyz'" button under "No matches"). The
+  dedicated header row above the results (`buildResultsHeaderRow`,
+  `buildNewEntryButton`) is gone, and so is the coral "Add Entry" key that
+  replaced it — see `ime-layout-v2-and-grab-design.md`'s "Where 'add
+  entry' lives".
 
 All of this is built, in the same pass as the rest of this document.
 
@@ -311,13 +330,11 @@ on `--muted-foreground`, no accent at all. Not a second, separate palette
 after all; one additional token, applied narrowly to "the thing that moves
 this flow forward," exactly where the reference does it.
 
-**Applied**: `ACCENT`/`ACCENT_FOREGROUND` added to
-`VaultKeyboardView`'s companion object (`#4A9EE0`/`#0C1827`, sourced
-directly from that file). `specialKey` gained an `accent: Boolean = false`
-parameter (default keeps every existing call site unchanged);
-`buildBottomActionRow`'s optional right-hand key — the only slot in this
-flow that's ever "Add Entry" or "Done," i.e. this flow's own "Save" — now
-passes `accent = true`. Nothing else in the create flow changed color:
+**Applied at the time, retired since**: an accent-coloured "Add Entry"
+key. The keypad has no strongly coloured key today — "Add entry" is a
+"+" with only a faint coral tint (`docs/IME-UX-REVIEW.md` C5,
+`IME-CONTROLS-REFINEMENT-PLAN.md` "The + key"), and `specialKey` has no
+`accent` parameter. Nothing else in the create flow changed color:
 Cancel, Generate, Search, Grab, and the detail view's Show/Hide/Fill chips
 all stay on the existing neutral `SECONDARY`, matching the reference's own
 restraint (only Save/Add-field get the accent treatment there; everything
@@ -348,17 +365,15 @@ right color, wrong placement. That's what changed:
   `EntryEditor.tsx`'s own header — that component doesn't have this app's
   "why you're here" messaging at all — so it wasn't dropped, just moved to
   its own row directly under the header, same shape as the
-  `draftGrabMessage` notice already below it.
+  `draftNotice` line already below it.
 - `createActionsRow` — the lateinit var, its construction and `addView` in
   `buildKeyboard()`, and its visibility line in `updateBottomRowsForScreen`
   — is gone entirely. `Screen.CREATE` now leaves the whole keypad hidden
   (no row takes its old slot), the same way `Screen.DETAIL` briefly did
   before `detailActionsRow` existed.
-- New `CREATE_HEIGHT_DP = 340` (up from sharing `DETAIL_HEIGHT_DP`'s 300):
-  with no action row left occupying keypad space for this screen,
-  `Screen.CREATE` gets back the same ~40dp `DETAIL_HEIGHT_DP`'s own
-  comment describes losing when `detailActionsRow` was added — the
-  original, pre-reduction 340.
+- With no action row left occupying keypad space for this screen, the
+  create panel gets the whole body height below the top bar (every screen
+  shares one fixed `BODY_HEIGHT_DP`; the results region takes what's left).
 
 Verified: grep for `createActionsRow` turns up only historical comments
 explaining what moved and why, no live code; the usual brace/paren/bracket
@@ -397,7 +412,6 @@ from the attached image:
 | Accent (filled pills, filled "✓" button, "✕" outline) | `#E0A087` |
 | Text/glyph color on an accent fill | `#241A16` (same as background) |
 | "TITLE"-style field label | `#A8887C` |
-| Back chevron | `#A7A3A2` |
 | Title / field value text | `#FFFFFF` |
 
 What changed in `VaultKeyboardView.kt`, scoped deliberately to just
@@ -406,43 +420,27 @@ the rest of the IME, which keeps the existing blue-navy palette
 untouched:
 
 - New `CREATE_BG`/`CREATE_BORDER`/`CREATE_ACCENT`/`CREATE_ACCENT_TEXT`/
-  `CREATE_MUTED`/`CREATE_CHEVRON`/`CREATE_FG` constants, holding exactly
-  the sampled values above. `ACCENT`/`ACCENT_FOREGROUND` (the blue pair
-  from the previous section) are untouched and still used elsewhere
-  (`buildBottomActionRow`'s "Add Entry") — this screen just stopped being
-  one of their callers.
-- The header is no longer Cancel/title/Done as plain text. It's now: a
-  "‹" chevron (same glyph/size `buildDetailView`'s own back arrow already
-  uses) at far left, the title left-aligned right after it (not
-  centered — the screenshot's title sits flush against the chevron, not
-  centered in the bar), then an outline-only "✕" button and a filled "✓"
-  button, both 40×40dp rounded squares, at far right. The screenshot
-  shows three controls where this flow only has two real actions
-  (cancel the draft, commit it) — resolved by wiring *both* the chevron
-  and the "✕" to `cancelDraftFlow()` and the "✓" to `finishDraft()`,
-  rather than inventing a third, distinct behavior nothing in this flow
-  needs. Flagged here in case that assumption is wrong — the screenshot
-  doesn't disambiguate it, and it's a real behavioral choice, not just a
-  visual one.
-- Each field row is restructured to match the screenshot's stack —
-  all-caps muted label, then a large bold value, then a row of
-  fully-rounded (pill-shaped) accent buttons underneath — replacing the
-  previous label-left/actions-right split. New `createPillButton` helper
-  (36dp tall, 18dp corner radius = a true pill) is `buildDraftFieldRow`'s
-  own, separate from `smallActionButton` (the small rounded-*rect* chip
-  every other field row, including the DETAIL screen's, still uses) —
-  so this change doesn't leak into `buildDetailView`, matching "the IME
-  new entry flow" scope exactly.
+  `CREATE_FG` constants. They started as exactly the sampled values above
+  and are now a muted version of them, by direct request — same coral
+  hue, about half the saturation, warm grey rather than brown (`IME-CREATE-PALETTE-MUTE-PLAN.md`).
+  Don't restore the sampled values.
+- The header and field rows kept the screenshot's palette but not its
+  layout: see `IME-DETAIL-CREATE-VISUAL-PASS.md` for the current one
+  (Cancel ✕ on the left, title and type, Save on the right; fields in one
+  warm card, one main action per row). The screenshot's "‹" chevron at far
+  left was built at first as a second cancel, then removed, because it
+  read as "back" while actually discarding the draft. Don't add it back —
+  see `ACCOUNT-CREATION-DESIGN.md`'s "Revision: writing into the page
+  safely, and confirming a discard". `createPillButton` (40dp, a true pill)
+  is the panel's primary button — Save and Generate only.
 - The non-password populate action is relabeled "Pick from Vault" (was
   "Search"), matching the screenshot's own label — the function it calls,
   `startPickingForDraftField`, is unchanged. (Since narrowed to Email and
   replaced by an inline saved-emails list, with `startPickingForDraftField`
   deleted — see `docs/ACCOUNT-CREATION-DESIGN.md`, "Revision: inline email
   list and the full generator panel".)
-- New `withCreateBorder` (a `CREATE_BORDER`-colored copy of
-  `withBottomBorder`) and `strokedRoundedRect` (an outline-only
-  `GradientDrawable`, for the "✕" button — `filledRoundedRect` already
-  covered the filled "✓") helpers.
+- New `strokedRoundedRect` (an outline-only `GradientDrawable`, now used
+  for every outline button) helper.
 
 Verified: brace/paren/bracket balance check passed clean; grepped that
 `smallActionButton` and `buildDetailFieldRow` (the DETAIL screen's own
@@ -450,15 +448,10 @@ field-row code) are unchanged and still on the blue-navy palette, and
 that `createPillButton`/`CREATE_*` constants are only ever referenced
 from `buildCreatePanel`/`buildDraftFieldRow`.
 
-**Later revision — DETAIL rows adopted this stack too.** The paragraphs
-above describe `buildDetailFieldRow` as it was at the time: still
-label-left/actions-right, on `smallActionButton`'s original 10dp side
-padding. It has since been restructured to the same label → value →
-chips-below stack, with `smallActionButton` widened to 20dp of clearance
-either side (height, 5dp radius and gradient recipe unchanged) — see
-`docs/MANUAL-FILL-DESIGN.md`'s "Detail-view field rows — current layout and
-fill feedback". The create panel keeps its own `createPillButton`; that
-change didn't touch it.
+**Current layout of both field screens:** `IME-DETAIL-CREATE-VISUAL-PASS.md`
+— fields in one rounded card, label and value on the left, actions in a
+column on the right; the detail view's Fill is a fixed-width neutral pill,
+the create panel keeps its coral palette.
 
 ## Revision: shared chrome switched from ink tokens to the vault palette
 
@@ -514,8 +507,8 @@ properties instead:
 | `ACCENT` | `#4A9EE0` | `#6B9DC6` | `--vault-accent` |
 | `ACCENT_FOREGROUND` | `#0C1827` | `#0A0D11` | `--vault-wall` |
 
-`ACCENT`'s one call site (`buildBottomActionRow`'s "Add Entry" key)
-already satisfied the spec's own "exactly three uses" rule for
+`ACCENT`'s one call site at the time (the old "Add Entry" key, since
+removed) already satisfied the spec's own "exactly three uses" rule for
 `--vault-accent` (primary action, focus ring, dial indicator) before this
 switch, so no call site needed to move off it.
 

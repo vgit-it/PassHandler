@@ -58,7 +58,7 @@ The IME's account-creation panel is the other consumer of
 `collectKnownEmails`: `window.__vaultCreate.listKnownEmails` (installed by
 `store.tsx`, wrapping `listKnownEmails` in `vault/accountCreationDraft.ts`)
 returns the same newest-first, de-duplicated list, and the Email field's
-"Pick from Vault" shows it as an inline list under the row — no query
+"Pick" shows it as an inline list under the row (its first row, "Use what's in the field", is the Email row's Grab) — no query
 filtering and no `limit` cap, unlike `filterEmailSuggestions`, since the
 keypad has no text box to type a query into. Picking one replaces the host
 field's text and records it in the draft. See

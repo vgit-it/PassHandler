@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A keyboard — the new-entry panel's "Switch keyboard" button.
+  Drawn on the shared 24x24, 1.8px-stroke grid of `src/ui/components/icons.tsx`.
+  The `#E2E6EA` color is a placeholder: call sites apply their own tint.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M4.7 6H19.3A2.2 2.2 0 0 1 21.5 8.2V15.8A2.2 2.2 0 0 1 19.3 18H4.7A2.2 2.2 0 0 1 2.5 15.8V8.2A2.2 2.2 0 0 1 4.7 6Z"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M6.5 10h1M10.5 10h1M14.5 10h1M17.5 10h0.5M8 14h8"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

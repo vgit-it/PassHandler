@@ -21,6 +21,8 @@ material this app wrote, and the clipboard commands only touch the clipboard.
 - `allow-import-vault`
 - `allow-type-text`
 - `allow-press-tab`
+- `allow-keyboard-status`
+- `allow-open-keyboard-settings`
 - `allow-register-listener`
 - `allow-remove-listener`
 
@@ -237,6 +239,58 @@ Enables the import_vault command without any pre-configured scope.
 <td>
 
 Denies the import_vault command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`vault:allow-keyboard-status`
+
+</td>
+<td>
+
+Enables the keyboard_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`vault:deny-keyboard-status`
+
+</td>
+<td>
+
+Denies the keyboard_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`vault:allow-open-keyboard-settings`
+
+</td>
+<td>
+
+Enables the open_keyboard_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`vault:deny-open-keyboard-settings`
+
+</td>
+<td>
+
+Denies the open_keyboard_settings command without any pre-configured scope.
 
 </td>
 </tr>

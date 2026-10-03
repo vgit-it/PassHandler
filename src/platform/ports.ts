@@ -53,6 +53,12 @@ export interface Settings {
    * Android never reads or acts on it.
    */
   manualFillHotkey: HotkeyCombo;
+  /**
+   * Ids of the first-run tip sequences already finished or skipped on this
+   * device (`src/ui/tips/tipSets.ts`, `docs/ONBOARDING-TIPS-DESIGN.md`).
+   * Device-local on purpose: tips are platform-specific.
+   */
+  tipsSeen: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -62,6 +68,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onboardingComplete: false,
   showSiteIcons: true,
   manualFillHotkey: DEFAULT_MANUAL_FILL_HOTKEY,
+  tipsSeen: [],
 };
 
 /** What `Platform.fetchFavicon` resolves to for a site that has one. */
@@ -144,6 +151,13 @@ export interface BiometricStatus {
   reason: string | null;
 }
 
+/** Android's own fill keyboard (`VaultIme`). `available` is false on
+ * Windows, which fills through the manual-fill hotkey instead. */
+export interface KeyboardStatus {
+  available: boolean;
+  enabled: boolean;
+}
+
 export interface Biometrics {
   status(): Promise<BiometricStatus>;
   /** Store key material behind the platform's biometric gate. */
@@ -181,6 +195,12 @@ export interface Platform {
    * no icon, or fails for any reason; never rejects.
    */
   fetchFavicon(url: string): Promise<FaviconIcon | null>;
+
+  /** Android: whether Vault's keyboard is turned on in the system list. */
+  keyboardStatus(): Promise<KeyboardStatus>;
+
+  /** Android: open the system screen where keyboards are turned on. */
+  openKeyboardSettings(): Promise<void>;
 
   /** Android: exclude the window from screenshots and the task switcher. */
   setScreenCaptureBlocked(blocked: boolean): Promise<void>;

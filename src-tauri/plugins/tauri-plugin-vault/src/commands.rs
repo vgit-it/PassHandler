@@ -142,3 +142,13 @@ pub(crate) async fn focused_field_is_password<R: Runtime>(
 ) -> Result<FocusedFieldPasswordResponse> {
     blocking(move || app.vault().focused_field_is_password()).await
 }
+
+#[command]
+pub(crate) async fn keyboard_status<R: Runtime>(app: AppHandle<R>) -> Result<KeyboardStatusResponse> {
+    blocking(move || app.vault().keyboard_status()).await
+}
+
+#[command]
+pub(crate) async fn open_keyboard_settings<R: Runtime>(app: AppHandle<R>) -> Result<()> {
+    blocking(move || app.vault().open_keyboard_settings()).await
+}

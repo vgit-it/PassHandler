@@ -25,7 +25,8 @@ pub use error::{Error, Result};
 pub use models::{
     BiometricAuthenticateRequest, BiometricStatusResponse, ClipboardClearRequest,
     ClipboardClearResponse, ClipboardScheduleClearRequest, ClipboardWriteRequest, ExportOutcome,
-    ExportVaultRequest, FocusedFieldPasswordResponse, ImportOutcome, ScreenCaptureRequest,
+    ExportVaultRequest, FocusedFieldPasswordResponse, ImportOutcome, KeyboardStatusResponse,
+    ScreenCaptureRequest,
     SecretSlot, SecureStoreDeleteRequest, SecureStoreGetRequest, SecureStoreGetResponse,
     SecureStoreSetRequest, TypeTextRequest,
 };
@@ -69,6 +70,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::type_text,
             commands::press_tab,
             commands::focused_field_is_password,
+            commands::keyboard_status,
+            commands::open_keyboard_settings,
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

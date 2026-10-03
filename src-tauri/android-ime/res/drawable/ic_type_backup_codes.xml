@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The "backupCodes" entry-type glyph, transcribed 1:1 from the web app's
+  `BackupCodesTypeIcon` (`src/ui/components/icons.tsx`) at that file's shared 24x24,
+  1.8px-stroke grid (`<rect>`/`<circle>` rewritten as equivalent paths).
+  Shown by `VaultKeyboardView.buildAvatar` for a non-Login entry, the same
+  glyph `EntrySiteIcon` (`EntryList.tsx`) puts on that entry's plate. The
+  `#E2E6EA` color is a placeholder: every call site applies its own
+  `setColorFilter` (`PEG_FOREGROUND`), same as `ic_globe.xml`.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M5 4H19A2 2 0 0 1 21 6V18A2 2 0 0 1 19 20H5A2 2 0 0 1 3 18V6A2 2 0 0 1 5 4Z"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M7 9h2M11 9h2M15 9h2M7 13h2M11 13h2M15 13h2M7 17h2M11 17h2"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

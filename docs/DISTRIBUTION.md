@@ -27,6 +27,8 @@ Two workflows build this repository, and they exist for different reasons.
 | Rust profile | dev | release — LTO, `opt-level = "s"`, stripped |
 | Android output | one `arm64-v8a` debug APK, **~360 MB** | one release APK per architecture, **~5 MB** |
 | Signed | debug key | your release key, if configured |
+| Android keyboard | included | included |
+| Google Drive sync | off — no client IDs, local-only | on — client IDs from repository secrets |
 
 CI's APK is large on purpose and not a sign of anything wrong. Tauri's
 generated `app/build.gradle.kts` sets `jniLibs.keepDebugSymbols` for debug
@@ -109,9 +111,7 @@ npm run tauri android dev      # emulator or attached device
 npm run tauri android build --apk
 ```
 
-`src-tauri/gen/` is generated and gitignored. After running `init` you need to
-add the OAuth redirect `intent-filter` — see
-[google-oauth-setup.md](./google-oauth-setup.md).
+`src-tauri/gen/` is generated and gitignored.
 
 Every hand-authored Android file — the custom IME (`VaultIme.kt`/
 `VaultKeyboardView.kt`/etc.), this app's `MainActivity.kt` (which replaces
@@ -119,8 +119,9 @@ the stub `android init` generates), and the theme resources it depends on
 (`colors.xml`, both `themes.xml`) — lives in the tracked
 `src-tauri/android-ime/`, and `npm run android:sync-ime`
 (`scripts/sync-android-ime.js`) copies it into `gen/android` and patches in
-its manifest entries. Run it every time `gen/` is freshly created; safe to
-re-run any other time too.
+its manifest entries, including the OAuth redirect `intent-filter` when
+`VITE_GOOGLE_CLIENT_ID_ANDROID` is set. Run it every time `gen/` is freshly
+created, and after changing that client ID; safe to re-run any other time too.
 
 ### Signing a release APK
 
@@ -154,6 +155,43 @@ build still runs, producing APKs named `-unsigned` that **cannot be installed**.
 The run's summary prints the signing certificate's SHA-1 — that is the value the
 Android OAuth client is registered against.
 
+### What a release APK contains
+
+A release APK must be the whole app — the same Android sources CI builds, and
+Drive sync switched on. Two steps in `release.yml` make that so.
+
+**The keyboard.** After `tauri android init`, the Android job runs
+`npm run android:sync-ime`, exactly as `ci.yml` does. Without it the APK
+carries Tauri's stub `MainActivity` and no custom keyboard at all — it still
+builds, so nothing fails to warn you.
+
+**Google Drive.** Vite reads the OAuth client IDs from `.env` at build time,
+and `.env` is gitignored, so a CI build has none and comes out local-only.
+Both build jobs write a `.env` from three more repository secrets before
+building (`.github/scripts/write-env.sh`):
+
+| Secret | Value |
+|---|---|
+| `GOOGLE_CLIENT_ID_DESKTOP` | the Desktop-app client ID |
+| `GOOGLE_CLIENT_SECRET_DESKTOP` | that client's secret |
+| `GOOGLE_CLIENT_ID_ANDROID` | the **release-key** Android client ID — not the debug one in your local `.env` |
+
+None of these is really secret — every one ends up inside the shipped app —
+but secrets keep them out of the logs and out of the repository, so anyone
+who forks this builds against their own Google Cloud project. Your local
+`.env` keeps the debug Android client; CI uses the release one. Nothing has
+to be swapped by hand before a release.
+
+The Android sync step also inserts the OAuth redirect `intent-filter`, derived
+from `GOOGLE_CLIENT_ID_ANDROID` — see
+[google-oauth-setup.md](./google-oauth-setup.md). Without that filter, Google
+sign-in can never return to the app.
+
+**Missing secrets.** On a `v*` tag, the build fails if any of the three is
+unset: a release that silently ships without sync is exactly what this
+prevents. A manual or pull-request run only warns in its summary, so the
+pipeline can still be exercised without them.
+
 **Locally** — sign the unsigned APK yourself:
 
 ```bash
@@ -174,7 +212,8 @@ gitignored.
 > Back it up now, before you ship anything.
 
 Remember that the release key's SHA-1 differs from the debug key's, so it needs
-its own Android OAuth client.
+its own Android OAuth client — that client's ID is the `GOOGLE_CLIENT_ID_ANDROID`
+secret above.
 
 ### Sideloading
 
@@ -197,7 +236,11 @@ Checklist before you distribute:
 
 - [ ] Consent screen moved from **Testing** to **Production**, or they will be
       re-authenticating every seven days
-- [ ] Release-key Android OAuth client registered, and its ID in `.env`
+- [ ] Release-key Android OAuth client registered, and its ID in the
+      `GOOGLE_CLIENT_ID_ANDROID` repository secret (with the two desktop
+      secrets beside it)
+- [ ] Installed a release APK yourself and connected Drive end to end before
+      sending it to anyone
 - [ ] Release keystore backed up
 - [ ] They know about the SmartScreen click-through (Windows) and the unknown
       sources prompt (Android)

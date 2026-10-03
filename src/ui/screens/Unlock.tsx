@@ -247,7 +247,7 @@ export function UnlockScreen({
     'flex h-11 w-11 items-center justify-center rounded-[5px] border border-[#565656] bg-gradient-to-b from-[#3f454a] to-[#32373d] shadow-[0_0_4.3px_rgba(0,0,0,.25)]';
 
   return (
-    // `absolute inset-0`, not `relative`/`h-full` — a real bug, found by
+    // `absolute` (inset by the safe area, below), not `relative`/`h-full` — a real bug, found by
     // actually measuring `document.body.scrollHeight` rather than trusting
     // the render to be right: `App.tsx` mounts this screen's `exiting` echo
     // as a plain sibling of the real, already-mounted `VaultScreen`, and
@@ -307,9 +307,23 @@ export function UnlockScreen({
     // of its own, to keep covering `VaultHeaderBar`'s hand-off underneath.
     // Don't give the exiting root a background again: it hides the whole
     // reveal, which then only ever plays out of sight.
+    //
+    // Inset by `env(safe-area-inset-*)`, not `inset-0`: with no positioned
+    // ancestor, this root resolves against the viewport and skips `#root`'s
+    // safe-area padding (`index.css`), which `VaultScreen` sits inside. At
+    // `inset-0` the frame below ran under the status and gesture bars, taller
+    // than Home's and out of line with `VaultDoors`, which already applies
+    // these same insets. The strip outside is painted the same colour by the
+    // `body` gutter rule in `index.css`.
     <div
       ref={rootRef}
-      className={`absolute inset-0 flex flex-col ${exiting ? '' : screenBackground}`}
+      className={`absolute flex flex-col ${exiting ? '' : screenBackground}`}
+      style={{
+        top: 'env(safe-area-inset-top)',
+        right: 'env(safe-area-inset-right)',
+        bottom: 'env(safe-area-inset-bottom)',
+        left: 'env(safe-area-inset-left)',
+      }}
     >
       {/* The top bar — new, per the Figma lock-screen reference (node
           144:254): a persistent "Vault" wordmark, visible even while
@@ -328,9 +342,12 @@ export function UnlockScreen({
           have that risk. Android gets its own, taller value — see
           `UNLOCK_TOP_BAR_HEIGHT_PX_ANDROID`'s own doc for why one number
           across both platforms left this screen's container a measurable
-          10px off from Home's. */}
+          10px off from Home's. `pt-2` on Android: this bar plus the
+          frame's 8px top margin stands in for Home's 68px header, so its
+          contents have to centre in that full 68px (at 34px), not in this
+          bar's own 60px, or the buttons and logo drop 4px at the hand-off. */}
       <div
-        className={`flex flex-shrink-0 items-center justify-between px-5 ${exiting ? screenBackground : ''}`}
+        className={`flex flex-shrink-0 items-center justify-between px-5 ${platform.isAndroid ? 'pt-2' : ''} ${exiting ? screenBackground : ''}`}
         style={{ height: platform.isAndroid ? UNLOCK_TOP_BAR_HEIGHT_PX_ANDROID : UNLOCK_TOP_BAR_HEIGHT_PX }}
       >
         <button
@@ -372,8 +389,18 @@ export function UnlockScreen({
           this fix the *whole* screen (this frame included) sat in one
           `z-50` root, which happened to look right only because this
           frame's own fill is transparent — genuinely correct now,
-          not just accidentally invisible. */}
-      <VaultFrame flushTop={false} wallBackground={false} bare={exiting}>
+          not just accidentally invisible.
+          `transparentBezel` on Android, exactly as `VaultScreen.tsx` passes
+          it: Home's bezel is transparent there, so its visible box is the
+          interior. An opaque bezel here made the locked box one bezel width
+          (9px) bigger on every side than Home's, a jump at the hand-off.
+          The doors already sit inside the bezel, where Home's interior is. */}
+      <VaultFrame
+        flushTop={false}
+        wallBackground={false}
+        transparentBezel={platform.isAndroid}
+        bare={exiting}
+      >
         <div className="flex flex-1 items-center justify-center overflow-y-auto p-4">
           {/* The floating login panel — "a control panel mounted on the
               door" (per request): its own solid surface, ported from the

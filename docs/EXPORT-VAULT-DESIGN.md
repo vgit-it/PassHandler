@@ -335,8 +335,8 @@ same file, and both ship from the same `androidx.core` artifact.
 
 ## Android manifest — turns out nothing to do
 
-Before writing this off as another gitignored, survives-rebuild edit (the
-same category as the OAuth redirect `intent-filter`), it's worth checking
+Before adding another manifest block for `scripts/sync-android-ime.js` to
+carry into the gitignored `gen/`, it's worth checking
 what's already there: Tauri's own Android template ships a `FileProvider`
 in `AndroidManifest.xml` by default —
 

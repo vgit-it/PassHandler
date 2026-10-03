@@ -316,7 +316,8 @@ shifts the day count by one.
 above said "a small toggle next to it" without committing to a shape;
 built as a small bordered icon button (`TrackToggle`, in
 `DateFieldWithRenewal.tsx`, using a new `BellIcon`) sitting inline in the
-same row as the date input and its calendar button, rather than a full
+same row as the date input and its calendar button, and exactly as tall
+as both (it stretches to the row's height), rather than a full
 `Toggle` switch on its own row (the style `CustomFieldRow`'s "Sensitive
 field" control already uses) — a full-size switch would have been visually
 heavier than the icon-button row it would have sat in. `DateFieldWithRenewal`

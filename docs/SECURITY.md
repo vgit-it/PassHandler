@@ -51,6 +51,45 @@ JavaScript offers no way to force a heap wipe, so this is hygiene rather than a
 guarantee. The app compensates by locking aggressively: idle timeout, window
 close, Android backgrounding, and manual lock.
 
+## Screen capture on Android
+
+Both Android windows that show vault contents are `FLAG_SECURE`: the app's
+own activity (`VaultPlugin.kt`) and the manual-fill keyboard's window
+(`VaultIme.secureWindow`, applied on create and re-asserted on every show).
+The keyboard needs it too because it lists entry titles and can reveal a
+sensitive value ("Show", 10 seconds). Screenshots, screen recording and
+casting see both blacked out. The trade-off: nothing about the keyboard can
+be screenshotted, even when it shows nothing sensitive.
+
+The keyboard also never carries one app's search session into another: its
+open entry and query reset when it's shown for a different calling app, so
+one app's entry can't be sitting there, Fill buttons live, inside another
+(`VaultKeyboardView.start`).
+
+**Clear's undo holds the wiped text briefly.** The keyboard's Clear reads
+the focused field's whole text before wiping it, so "Undo" can type it back
+for 5 seconds. That text may be a password. It's kept only in the
+keyboard's memory — never persisted, never sent anywhere — and dropped when
+the 5 seconds end, when focus moves to another field, or when the keyboard
+is dismissed. Accepted as the cost of making a one-tap wipe reversible
+(`docs/IME-UX-IMPROVEMENT-PLAN.md` D5).
+
+**Grab on return reads the focused field too.** When the keyboard reopens
+during account creation, it reads the focused field's text to offer saving
+it into the draft (`ACCOUNT-CREATION-DESIGN.md`). Same handling: memory
+only, shown masked if it came from a password field, dropped as soon as
+the user picks a field or dismisses it, the draft ends, or the keyboard is
+dismissed. Nothing is saved without the user's tap.
+
+**A generated password is shown in the keyboard.** In account creation,
+each password the generator makes shows in plain text in the Password row
+until the user hides it, with no timeout, so the user can see what was
+made while the host's field shows only dots. Weaker than masking against
+someone looking over a shoulder; accepted because the password isn't
+saved yet and the user is still choosing it. The main app's generator does
+the same. The window is `FLAG_SECURE`, so screenshots and recordings don't
+see it. Saved values in the entry detail still start masked.
+
 ## Biometric unlock — read this one carefully
 
 After a successful password unlock, the app can store **the SHA-256 of the

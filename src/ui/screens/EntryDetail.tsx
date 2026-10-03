@@ -275,7 +275,7 @@ export function EntryDetail({
  * The icon beside the entry title — the fetched site favicon once one's
  * available, the entry-type glyph otherwise. No badge/box around either
  * variant — this screen deliberately shows just the icon itself, unlike
- * `EntryList.tsx`'s own `EntrySiteIcon` (a colored plate with row-press
+ * `EntryList.tsx`'s own `EntrySiteIcon` (a neutral plate with row-press
  * states tied to an ancestor `group` class on a clickable row), which is
  * why this isn't just that component reused here: nothing about this row is
  * clickable, and the plate/press treatment has no meaning on it. Reuses

@@ -122,6 +122,12 @@ class VaultImePreviewActivity : Activity() {
                 toast("Would grab from the focused field")
                 "sample-grabbed-value"
             },
+            // Clear's undo needs the field's text; the preview has no real
+            // field, so this pretends there was something to restore.
+            onReadField = { "sample field text" },
+            onSwitchToNextKeyboard = { toast("Would switch to the next keyboard") },
+            onShowKeyboardPicker = { toast("Would show the keyboard picker") },
+            offersKeyboardSwitch = { true },
         )
 
         setContentView(root)
@@ -137,6 +143,8 @@ class VaultImePreviewActivity : Activity() {
             titleGuess = "Sample App",
             likelySignup = true,
             packageName = "com.passhandler.app.preview",
+            appLabel = "Sample App",
+            isBrowser = false,
         )
         keyboardView.start()
     }
@@ -187,6 +195,10 @@ private class FakePreviewEntrySource(
         val field = entries.firstOrNull { it.id == entryId }?.fields?.firstOrNull { it.key == key }
         callback(field?.let { "sample-${it.key}" })
     }
+
+    // No favicons in the preview — there's no webview to fetch through —
+    // so every Login row shows its plate-and-globe fallback.
+    override fun readIcon(entryId: String, callback: (SiteIconResult) -> Unit) = callback(SiteIconResult.None)
 
     override fun lockVault() {
         entries = emptyList()
@@ -372,6 +384,7 @@ private fun sampleEntries(): List<FillEntry> = listOf(
         id = "preview-login",
         title = "Amazon",
         type = "login",
+        typeLabel = "Login",
         fields = listOf(
             FillField("username", "Username", "paul@example.com", sensitive = false, dataType = "text", fillable = true),
             FillField("password", "Password", "", sensitive = true, dataType = "text", fillable = true),
@@ -381,6 +394,7 @@ private fun sampleEntries(): List<FillEntry> = listOf(
         id = "preview-card",
         title = "Chase Sapphire",
         type = "card",
+        typeLabel = "Card",
         fields = listOf(
             FillField("number", "Card number", "", sensitive = true, dataType = "text", fillable = true),
             FillField("expiry", "Expiry", "11/28", sensitive = false, dataType = "text", fillable = true),
@@ -392,6 +406,7 @@ private fun sampleEntries(): List<FillEntry> = listOf(
         id = "preview-wifi",
         title = "Home Wi-Fi",
         type = "wifi",
+        typeLabel = "WiFi",
         fields = listOf(
             FillField("ssid", "SSID", "Netgear_5G_2E4", sensitive = false, dataType = "text", fillable = true),
             FillField("password", "Password", "", sensitive = true, dataType = "text", fillable = true),
@@ -401,6 +416,7 @@ private fun sampleEntries(): List<FillEntry> = listOf(
         id = "preview-note",
         title = "A long entry title that should truncate with an ellipsis",
         type = "note",
+        typeLabel = "Secure Note",
         fields = listOf(
             FillField("note", "Note", "Just some sample text", sensitive = false, dataType = "multiline", fillable = true),
         ),

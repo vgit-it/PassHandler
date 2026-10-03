@@ -15,6 +15,18 @@ export default {
         // used at every call site across the app — so this is a value swap,
         // not a rename; nothing outside this file and index.css needed to
         // change.
+        //
+        // `ink`, `primary`, `accent`, `warn`, `bad` and `slate` 100-400 read
+        // their values from CSS variables (`index.css`'s `:root`, as
+        // space-separated RGB triplets) so a scope class can swap in another
+        // palette for everything inside it: `.palette-create` (the
+        // entry-creation flow, `docs/ENTRY-CREATION-PALETTE-DESIGN.md`) and
+        // `.palette-grey`/`.palette-vault` (Settings,
+        // `docs/SETTINGS-VISUAL-PASS.md`). The `<alpha-value>` form
+        // keeps opacity modifiers (`bg-accent/15`) working — unlike the
+        // `vault-*` tokens below, which are plain `var()`s. `:root` holds the
+        // exact values these had as hex, so nothing outside that class
+        // changes; the hex values stay in the comments for reference.
         ink: {
           // ink-950: the app's page background — one step darker than
           // ink-900, per the Figma home-screen redesign (`--darkbg`
@@ -22,30 +34,39 @@ export default {
           // reusable elevated-surface color (cards, panels) that sits on
           // top of it, since its value happens to already equal the
           // design's own card color — see `index.css`'s `body` doc.
-          950: '#070e19',
-          900: '#0c1827', // --background (now also: card/surface color)
-          800: '#111e2e', // --card
+          950: 'rgb(var(--ink-950) / <alpha-value>)', // #070e19
+          900: 'rgb(var(--ink-900) / <alpha-value>)', // #0c1827 // --background (now also: card/surface color)
+          800: 'rgb(var(--ink-800) / <alpha-value>)', // #111e2e // --card
           // ink-750: card/panel border color, from the same redesign —
           // sits between ink-800 and ink-700 in actual lightness, hence
           // the step number. No prior token matched this exact value.
-          750: '#142238',
-          700: '#1a2d44', // --secondary
-          600: '#1e3457', // --border
-          500: '#264670', // --ph-navy-400 (lightest navy step; stronger borders, scrollbar thumb)
+          750: 'rgb(var(--ink-750) / <alpha-value>)', // #142238
+          700: 'rgb(var(--ink-700) / <alpha-value>)', // #1a2d44 // --secondary
+          600: 'rgb(var(--ink-600) / <alpha-value>)', // #1e3457 // --border
+          500: 'rgb(var(--ink-500) / <alpha-value>)', // #264670 // --ph-navy-400 (lightest navy step; stronger borders, scrollbar thumb)
         },
         // Primary button surfaces only (design system --primary). Distinct
         // from `accent`, which covers links/focus rings/selected rows.
         primary: {
-          DEFAULT: '#8fadc7',
-          foreground: '#0c1827',
+          DEFAULT: 'rgb(var(--primary) / <alpha-value>)', // #8fadc7
+          foreground: 'rgb(var(--primary-foreground) / <alpha-value>)', // #0c1827
         },
         accent: {
-          DEFAULT: '#4a9ee0', // --accent
-          muted: '#3d6ebc',
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)', // #4a9ee0, design system --accent
+          muted: 'rgb(var(--accent-muted) / <alpha-value>)', // #3d6ebc
         },
         ok: '#4ade80', // --success (unchanged — already matched)
-        warn: '#f59e0b', // --warning
-        bad: '#e05252', // --destructive
+        warn: 'rgb(var(--warn) / <alpha-value>)', // #f59e0b, --warning
+        bad: 'rgb(var(--bad) / <alpha-value>)', // #e05252, design system --destructive
+        // Tailwind's own slate steps 100-400 (unchanged values in `:root`),
+        // made swappable for the same reason. `extend` merges these over
+        // the default scale, so the other slate steps stay as they were.
+        slate: {
+          100: 'rgb(var(--slate-100) / <alpha-value>)', // #f1f5f9
+          200: 'rgb(var(--slate-200) / <alpha-value>)', // #e2e8f0
+          300: 'rgb(var(--slate-300) / <alpha-value>)', // #cbd5e1
+          400: 'rgb(var(--slate-400) / <alpha-value>)', // #94a3b8
+        },
         // Unlock screen's submit/biometric buttons only. Backed by CSS
         // custom properties (index.css `:root`) rather than a flat hex, so
         // the color can be swapped in one place later without touching
@@ -85,6 +106,15 @@ export default {
           front: 'var(--edge-front)',
         },
         hairline: 'var(--hairline)',
+        // First-run tip cards — see `--tip-*` in index.css. Plain `var()`s
+        // like `vault-*`: no Tailwind opacity modifiers on these.
+        tip: {
+          fill: 'var(--tip-fill)',
+          border: 'var(--tip-border)',
+          fg: 'var(--tip-fg)',
+          icon: 'var(--tip-icon)',
+          button: 'var(--tip-button)',
+        },
       },
       borderRadius: {
         // Vault geometry (`docs/vault-visual-language-spec.md` §2) — `rounded-vault-inner`

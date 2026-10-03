@@ -53,6 +53,29 @@
     --actionbutton-bg: #2d6ba8;
     --actionbutton-text: #d6e4ef;
 
+    /* The app's main color tokens (`ink`, `primary`, `accent`, `warn`,
+       `bad`, `slate` 100-400 in tailwind.config.js), as space-separated RGB
+       so Tailwind's opacity modifiers keep working. These are the app's own
+       values; the `.palette-*` classes below swap in other palettes for one
+       part of the app. */
+    --ink-950: 7 14 25; /* #070e19 */
+    --ink-900: 12 24 39; /* #0c1827 */
+    --ink-800: 17 30 46; /* #111e2e */
+    --ink-750: 20 34 56; /* #142238 */
+    --ink-700: 26 45 68; /* #1a2d44 */
+    --ink-600: 30 52 87; /* #1e3457 */
+    --ink-500: 38 70 112; /* #264670 */
+    --primary: 143 173 199; /* #8fadc7 */
+    --primary-foreground: 12 24 39; /* #0c1827 */
+    --accent: 74 158 224; /* #4a9ee0 */
+    --accent-muted: 61 110 188; /* #3d6ebc */
+    --warn: 245 158 11; /* #f59e0b */
+    --bad: 224 82 82; /* #e05252 */
+    --slate-100: 241 245 249; /* #f1f5f9 */
+    --slate-200: 226 232 240; /* #e2e8f0 */
+    --slate-300: 203 213 225; /* #cbd5e1 */
+    --slate-400: 148 163 184; /* #94a3b8 */
+
     /* Vault visual-language tokens (`docs/vault-visual-language-spec.md`,
        `docs/vault-visual-overhaul-plan.md`) — the "physical vault" design
        system (see the plan doc for which screens use it).
@@ -94,6 +117,18 @@
     --vault-ok: #6fbf8b;
     --vault-warn: #c9963f;
 
+    /* First-run tip cards only (`TipCard.tsx`,
+       `docs/ONBOARDING-TIPS-DESIGN.md`). Lavender because nothing else in
+       the app uses it, so it only ever means "tip": the accent is reserved
+       (§3.7), amber means warning, green success, coral entry creation.
+       Same values on both platforms — it reads on Android's #292c2f and
+       Windows' near-black wall alike. */
+    --tip-fill: rgba(155, 145, 220, 0.18);
+    --tip-border: rgba(170, 160, 230, 0.45);
+    --tip-fg: #e7e4fb;
+    --tip-icon: #b9b1ef;
+    --tip-button: rgba(170, 160, 230, 0.28);
+
     --vault-bezel: 9px;
     --vault-margin: 8px;
     --vault-r-shelf: 0px; /* shelves are square — they span wall to wall */
@@ -115,6 +150,79 @@
     --vault-t-box: 320ms; /* detail box open; read by ShelfOriginPanel.tsx at run time */
     --vault-t-box-close: 240ms; /* detail box close — shorter, leaving is quicker */
     --vault-t-door: 400ms;
+  }
+
+  /* The entry-creation flow's palette (Android: `TypePicker.tsx`,
+     `EntryEditor.tsx`, for new and existing entries) — the IME's muted
+     warm grey and soft coral (`docs/ENTRY-CREATION-PALETTE-DESIGN.md`,
+     `docs/IME-CREATE-PALETTE-MUTE-PLAN.md`), so creating an entry looks
+     the same in the app and in the keyboard. It only redefines the color
+     tokens above; every `bg-ink-*`/`text-slate-*`/`accent`/`primary`/`bad`
+     class inside picks it up. Colors only — nothing here may touch layout.
+     `ok`/`warn` stay as they are: they carry meaning. */
+  .palette-create {
+    --ink-950: 32 30 29; /* #201E1D */
+    --ink-900: 38 35 33; /* #262321 */
+    --ink-800: 54 49 46; /* #36312E, the IME's field card */
+    --ink-750: 58 53 50; /* #3A3532 */
+    --ink-700: 64 58 55; /* #403A37 */
+    --ink-600: 74 67 63; /* #4A433F */
+    --ink-500: 90 81 76; /* #5A514C */
+    --primary: 209 165 148; /* #D1A594 */
+    --primary-foreground: 42 39 37; /* #2A2725, 6.7:1 */
+    --accent: 209 165 148; /* #D1A594, the IME's CREATE_ACCENT */
+    --accent-muted: 168 133 118; /* #A88576 */
+    --bad: 236 119 119; /* #EC7777, the IME's DANGER: 5.3:1 on the wall, where #e05252 is 3.9 */
+    --slate-100: 242 237 234; /* #F2EDEA, the IME's off-white */
+    --slate-200: 230 223 219; /* #E6DFDB */
+    --slate-300: 210 200 195; /* #D2C8C3 */
+    --slate-400: 179 166 159; /* #B3A69F, the IME's label: 6.3:1 on the wall */
+  }
+
+  /* Settings' palettes (`docs/SETTINGS-VISUAL-PASS.md`), so its shared
+     controls (`.field`, `.btn-*`, `Toggle`, the strength bar) match the
+     page and cards around them instead of the old navy system. Android:
+     `.palette-grey`, Home's neutral grey (cards are `#373d43` once blended)
+     with the vault's steel-blue accent. Windows: `.palette-vault`, the
+     `--vault-*` values. Contrast figures are against the section card.
+     Colors only, like `.palette-create`. */
+  .palette-grey {
+    --ink-950: 31 34 37; /* #1F2225 */
+    --ink-900: 36 39 42; /* #24272A */
+    --ink-800: 34 38 42; /* #22262A, a field recessed into the card */
+    --ink-750: 43 47 51; /* #2B2F33 */
+    --ink-700: 69 76 84; /* #454C54, a button raised off the card */
+    --ink-600: 79 87 96; /* #4F5760, hover */
+    --ink-500: 128 138 148; /* #808A94, borders and the off toggle: 3.1:1 */
+    --primary: 107 157 198; /* #6B9DC6 */
+    --primary-foreground: 20 24 28; /* #14181C, 6.2:1 */
+    --accent: 107 157 198; /* #6B9DC6, the vault accent: 3.8:1 */
+    --accent-muted: 86 130 168; /* #5682A8 */
+    --warn: 247 178 59; /* #F7B23B, 4.9:1 on its banner, where #f59e0b is 4.3 */
+    --bad: 242 139 139; /* #F28B8B, 4.6:1, where #e05252 is 2.9 */
+    --slate-100: 214 228 239; /* #D6E4EF, Home's foreground */
+    --slate-200: 214 228 239; /* #D6E4EF */
+    --slate-300: 192 204 214; /* #C0CCD6 */
+    --slate-400: 170 180 189; /* #AAB4BD, 5.2:1 */
+  }
+
+  .palette-vault {
+    --ink-950: 10 13 17; /* #0A0D11, --vault-wall */
+    --ink-900: 15 19 24; /* #0F1318 */
+    --ink-800: 19 24 32; /* #131820, --vault-rail: a field recessed into the shelf */
+    --ink-750: 24 29 37; /* #181D25 */
+    --ink-700: 42 48 57; /* #2A3039, --hairline: a button raised off the shelf */
+    --ink-600: 52 59 69; /* #343B45, hover */
+    --ink-500: 107 117 128; /* #6B7580, borders and the off toggle: 3.3:1 */
+    --primary: 107 157 198; /* #6B9DC6, --vault-accent */
+    --primary-foreground: 10 13 17; /* #0A0D11, 6.7:1 */
+    --accent: 107 157 198; /* #6B9DC6 */
+    --accent-muted: 86 130 168; /* #5682A8 */
+    --bad: 236 119 119; /* #EC7777, 5.5:1 */
+    --slate-100: 226 230 234; /* #E2E6EA, --vault-fg */
+    --slate-200: 226 230 234; /* #E2E6EA */
+    --slate-300: 180 188 196; /* #B4BCC4 */
+    --slate-400: 139 148 158; /* #8B949E, --vault-muted: 5.0:1 */
   }
 
   html,
@@ -296,5 +404,34 @@
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* First-run tips (`TipCard.tsx`, `docs/ONBOARDING-TIPS-DESIGN.md`): the
+   card fades and rises 8px in; each new tip's sentence fades in. Reduced
+   motion drops both — the card and each tip just appear. `backwards`, not
+   `both`: a fill that outlives the animation would override the card's
+   opacity transition on its way out. */
+@keyframes tip-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes tip-text-in {
+  from {
+    opacity: 0;
+  }
+}
+.tip-card-in {
+  animation: tip-card-in 220ms var(--vault-arrive) backwards;
+}
+.tip-text-in {
+  animation: tip-text-in var(--vault-t-ui) var(--vault-arrive) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tip-card-in,
+  .tip-text-in {
+    animation: none;
   }
 }

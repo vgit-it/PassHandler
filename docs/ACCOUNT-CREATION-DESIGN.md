@@ -46,19 +46,18 @@ the full generator panel" at the end of this document is the spec they were
 rebuilt from, and supersedes those two revisions' Kotlin-side specifics
 (`PopupMenu`, "nothing collapses the panel").
 
-**Known gap, not restored, found while fixing the above (the Options-panel
-half of this is now rebuilt — see the final revision; the Type row and the
-Show/Hide pill below are still missing):** the same
+**Known gap, found while fixing the above — now fully rebuilt** (the
+Options panel in "Revision: inline email list and the full generator
+panel"; the Type selector and the Password row's show/hide in
+`IME-DETAIL-CREATE-VISUAL-PASS.md`): the same
 intervening regression also stripped `VaultKeyboardView.kt`'s
-"Type" row (`buildDraftTypeRow` — the UI that would call the now-working
+"Type" selector (the UI that would call the now-working
 `listEntryTypes`/`setDraftType`) and its password-generator Options panel
 (`buildPasswordOptionsPanel`, the UI that would call
 `setDraftPasswordOptions`) entirely. The JS/TS side now implements the full
 contract the Kotlin side expects — including these two — so a Kotlin fix
-can wire them back in without touching `store.tsx` again. Until the Type row
-is wired back in, the IME's creation panel always defaults to (and can't
-leave) Login. (The Options panel has since been rebuilt.) Every other draft field for a Login entry
-(Username/Email/Password/URL/Notes) renders and commits correctly.
+can wire them back in without touching `store.tsx` again — which is how
+both came back.
 
 The Kotlin/Android side —
 `WebViewBridge.kt`'s draft functions, `VaultIme.kt`'s
@@ -120,7 +119,7 @@ Windows" at the end.
    row — that retypes the same stored value, identically to how Fill on any
    saved entry's field already behaves. No special-cased "remember what I
    just generated" logic needed.
-7. **Commit.** Exactly once, either when the user taps "Done" in the IME or
+7. **Commit.** Exactly once, either when the user taps "Save" in the IME or
    when the vault locks (see "Session lifetime" below) — not after every
    field. One `Vault.addEntry` call with whatever fields were filled by
    then, immediately followed by `Vault.setNeedsReview(id, true)`. There is
@@ -170,8 +169,10 @@ not duplicated into Kotlin. Nothing is written to the vault until it
 commits. Confirmed behavior:
 
 - **Survives switching apps.** Grabbing an SMS OTP mid-signup and coming
-  back doesn't end the session. Only an explicit "Done"/cancel in the IME,
-  or a lock, ends it.
+  back doesn't end the session — even though the *search* session resets
+  when the keyboard opens in a different app (`QUICK-FILL-RANKING-DESIGN.md`'s
+  "Session persistence"). Only an explicit "Save" or cancel (✕,
+  confirmed once the draft holds any value) in the IME, or a lock, ends it.
 - **Locking finalizes it.** `Vault.lock()` already runs in the JS layer, so
   hooking "commit whatever the draft has, flagged for review" into it is a
   direct addition there — not a new cross-process signal from Kotlin.
@@ -277,10 +278,11 @@ search-screen detour (`pickingForDraftField`, `startPickingForDraftField`,
 dead — nothing calls it any more now that Email is a dropdown and no other
 field ever picked this way.
 
-**Any entry type, not just Login.** The panel's header grew a "Type" row
-(`buildDraftTypeRow`), defaulting to Login, with a "Change" action that
-opens a `PopupMenu` of every type in `entryTypes.ts`'s registry
-(`listEntryTypes`). Picking one (`setDraftType`) resets every field back
+**Any entry type, not just Login.** The panel's header shows the draft's
+type under its title ("Login ⌄", defaulting to Login); tapping it replaces
+the field card with a list of every type in `entryTypes.ts`'s registry
+(`listEntryTypes`, `buildTypeListPanel`) — inline, not a `PopupMenu`, for
+the same reasons as the email list below. Picking one (`setDraftType`) resets every field back
 to blank — kept to that one simple rule rather than trying to carry a
 value across two types' unrelated fields (even a same-named one:
 `password` means the same *slot* on both `login` and `wifi`, but not the
@@ -378,17 +380,18 @@ now call the existing `onClearField()` (the "fix a mistake" key's own
 callback — a generous `deleteSurroundingText` in both directions around
 the cursor, same mechanism already used for the top-bar Clear key)
 immediately before `onCommitText`, so every (re)generate replaces the
-field's contents outright. Deliberately scoped to just these two
-functions — Fill/Grab/Pick-from-Vault weren't reported broken and don't
-share Generate's "tap the same field repeatedly" pattern, so they're
-untouched.
+field's contents outright — but only when the focused field is a password
+field; see "Revision: writing into the page safely, and confirming a
+discard" below.
 
 **Show/Hide for every sensitive draft field.** Previously there was no way
 to reveal what a sensitive draft field actually held — not just Password;
-any sensitive field, on any type. Now `buildDraftFieldRow` grows a
-"Show"/"Hide" pill (first in the action row, mirroring
+any sensitive field, on any type. Now `buildDraftFieldRow` grows an
+eye icon button (first on the row's right side, mirroring
 `buildDetailFieldRow`'s own ordering) whenever a sensitive field has a
-value. Deliberately **not** the same mechanism as `buildDetailFieldRow`'s
+value. A value the generator just produced starts **shown**, so the user
+can see what was made (the host's password field only shows dots); a value
+that came from Grab starts masked (`IME-CONTROLS-REFINEMENT-PLAN.md` item 3). Deliberately **not** the same mechanism as `buildDetailFieldRow`'s
 own reveal, though, despite living in the same file: that one
 (`toggleReveal`/`revealedFields`) fetches an already-*saved* entry's
 plaintext on demand and auto-hides again after `REVEAL_SECONDS` — the same
@@ -418,15 +421,14 @@ control.
 
 **Status: built, not compiler-verified.** Kotlin in `VaultKeyboardView.kt`
 (`buildEmailListPanel`, `buildPasswordOptionsPanel`, `buildStrengthBar`,
-`createToggleChip`, `openDraftPanelKey` and friends), `WebViewBridge.kt`
+`modeToggle`, `openDraftPanelKey` and friends), `WebViewBridge.kt`
 (`PasswordStrength`) and `VaultImePreviewActivity.kt` (canned emails, fake
 strength); JS side: `passwordStrength` on `draftSnapshot` in
 `vault/accountCreationDraft.ts`, with a test. Same "not compiler-verified"
 caveat as the rest of this document — a real Android build is what's left.
-Still missing from the panel, unchanged by this revision: the Type row
-(`buildDraftTypeRow`) and the Show/Hide pill for sensitive draft fields
-(`revealedDraftFields`), both described as built above but absent from the
-Kotlin.
+(The Type selector and the Password row's show/hide, missing when this
+revision was written, have since been rebuilt — see
+`IME-DETAIL-CREATE-VISUAL-PASS.md`.)
 
 Two direct bug reports against the IME's creation panel: the Email field's
 "Pick from Vault" opens the entry *search* instead of offering emails already
@@ -436,7 +438,7 @@ the top); this section is the agreed design for putting them back, settled
 question by question before any code.
 
 **Email: an inline list, not a `PopupMenu` and not the search flow.**
-- "Pick from Vault" still shows only on email-shaped fields
+- "Pick" (was "Pick from Vault") still shows only on email-shaped fields
   (`canPickFromVault`, from `isEmailFieldName`). Tapping it expands a list
   directly under the Email row; tapping it again collapses the list.
 - Contents: `entrySource.listKnownEmails` — every distinct email-shaped
@@ -444,10 +446,11 @@ question by question before any code.
   `docs/email-suggestions-design.md`), newest first. The full set: no filter
   box and no cap on how many. Roughly four rows are visible, then the list
   scrolls inside itself, so one long list can't take over the panel.
-- Tapping an email **replaces** whatever is in the host field (clear, then
-  type — the same `onClearField` + `onCommitText` pair "Generate" uses;
-  appending would corrupt a half-typed address), records it in the draft
-  (`setDraftField`), and collapses the list.
+- Tapping an email records it in the draft (`setDraftField`), collapses the
+  list, and **replaces** whatever is in the host field (clear, then type —
+  the same `onClearField` + `onCommitText` pair "Generate" uses; appending
+  would corrupt a half-typed address) — unless the focused field is a
+  password field, which it never wipes (see the revision below).
 - No saved emails: the pill stays and the list shows one muted row, "No saved
   emails yet" — hiding the button would read as a bug.
 - Why inline: a native `PopupMenu` is themed by the system (ignores the coral
@@ -458,7 +461,7 @@ question by question before any code.
 - The old search detour is **deleted for real** this time: the
   `startPickingForDraftField` function, the `pickingForDraftField` state and
   every reference to it (`start()`'s reset, `renderResultsArea`'s stale-entry
-  guard, the back-button/"New search" handling), and `finishFill`/
+  guard, the back-button/results-return handling), and `finishFill`/
   `performFill`/`performExpiryFill`'s `forDraftKey` parameter and draft
   branch. Nothing in the Windows app or `PickEntryDetail.tsx` is affected —
   that is a different flow.
@@ -472,14 +475,19 @@ question by question before any code.
   IME design's "nothing collapses it" is reversed), the length slider
   (`MIN_LENGTH`–`MAX_LENGTH`, 8–64) with its current value, the four class
   toggles (A-Z, a-z, 0-9, !@#) and "Regenerate".
+- Every generated password shows in plain text in its row (the eye starts
+  in its "hide" state), with no auto-hide; the eye hides it until the next
+  regeneration.
 - Any slider or toggle change regenerates via `setDraftPasswordOptions`,
-  replacing the host field's text (clear, then type). The slider commits on
+  replacing the host field's text (clear, then type) when a password field
+  is focused, and only the draft otherwise. The slider commits on
   finger lift, not per drag tick — unchanged from the earlier design and for
   the same reason (a JS round trip and a host-field retype per pixel is
   wasteful). The last enabled class can't be turned off (`canDisable`): its
   toggle is dimmed and unclickable.
 - A **strength bar** (the web `StrengthBar`: five segments plus a label, red /
-  amber / green tones, green reusing `SUCCESS`) shows under the Password row
+  amber / green tones, green reusing `SUCCESS`; the "Weak" word itself is
+  `DANGER`, for text contrast) shows under the Password row
   whenever the field has a value. The score and label come from
   `estimateStrength` on the JS side and travel down in the draft snapshot,
   the same "TS is the source of truth" rule the bridge already follows —
@@ -487,12 +495,16 @@ question by question before any code.
 - **No scramble animation.** The web field's 1.5s character shuffle is
   skipped: here the value is retyped into the *host app's* field, where
   flickering characters would be wrong, not a nicety.
-- Styling stays in the coral palette. Toggles: on = the coral gradient pill
-  (same as "Generate") with dark text; off = outline only in `CREATE_BORDER`
-  with muted text. Slider: coral-tinted track and thumb. "Regenerate": the
-  existing `createPillButton`.
+- Styling stays in the coral palette (its muted version, `IME-CREATE-PALETTE-MUTE-PLAN.md`). The class toggles are mode
+  controls, never filled: on = a 1.5dp `CREATE_ACCENT` outline, accent text
+  and a check; off = a 1dp `CREATE_BORDER` outline with muted text
+  (`IME-CONTROLS-REFINEMENT-PLAN.md` item 4). Filled coral is reserved for Generate and
+  Save. Slider: coral-tinted track and thumb. "Regenerate": a text
+  button (tertiary).
 
-**Layout: fixed height, scrolling.** `CREATE_HEIGHT_DP` (340) stays. The
+**Layout: fixed height, scrolling.** The create panel's results region is
+whatever `BODY_HEIGHT_DP` leaves below the top bar (the keypad hides on this
+screen), the same fixed body height every screen shares. The
 opened panel (~150dp for the password one) pushes the rows below it down, and
 the results region scrolls, auto-scrolling so the newly opened panel is fully
 in view. The keyboard does *not* grow taller: that would resize the host app's
@@ -508,6 +520,122 @@ open-or-closed is plain view state and does not.
 **Preview harness.** `VaultImePreviewActivity`'s fake source gets a canned
 known-emails list and working options/strength values, so both UIs can be
 eyeballed without a vault.
+
+## Revision: writing into the page safely, and confirming a discard
+
+From `docs/IME-UX-REVIEW.md` P4/P5 (plan: `IME-UX-IMPROVEMENT-PLAN.md`
+Phase 1). Two ways the panel could lose or expose a value:
+
+**Draft actions only write into the right kind of field.** Generate,
+Regenerate, every generator setting, and picking a saved email used to
+clear and retype *whatever* field had focus. With the username field
+focused, Generate wiped the username and showed the new password there in
+plain text. Now `VaultKeyboardView` tracks `focusedFieldIsPassword` (set on
+every focus change by `onEditorInfoChanged`, which `VaultIme.onStartInput`
+calls for the first field of a show and every later one), and:
+
+- a generated password is typed into the page only when a password field
+  is focused;
+- a picked email is typed only when a non-password field is focused;
+- otherwise the value goes into the draft only, and the panel says so in
+  its notice line ("Password generated and saved to this entry. Tap the
+  page's password field, then Fill…"). The draft row's own **Fill** chip
+  then types it on an explicit tap — Fill itself is unrestricted, since
+  it's always a deliberate choice.
+
+The notice line (`draftNotice`) is the same line that shows "Nothing to
+grab…"; it clears on the next draft action and whenever the flow ends.
+
+**Cancel asks first once the draft holds anything.** The header used to
+have two discard controls, a "‹" chevron (which read as "back") and the
+"✕", both discarding the draft instantly. A generated password may already
+be in the page by then, and the site may accept it — discarding would leave
+it saved nowhere else. Now:
+
+- the chevron is gone; "✕" (Cancel) is the one discard control;
+- a draft with every field empty still cancels immediately;
+- otherwise the header is replaced by a confirm bar (`buildDiscardConfirmBar`):
+  "Discard this entry? Anything already typed into the page won't be saved
+  in Vault." with a filled **Keep editing** and an outline **Discard**, so
+  the destructive choice is never the prominent one.
+
+The panel's pill buttons and generator toggles are now 40dp (were 36dp,
+under the IME's touch-target floor), with a 20dp radius so they stay fully
+rounded.
+
+**Save ends the session cleanly.** `finishDraft` now also returns `screen`
+to search. Previously it didn't, and neither did a lock that finalized the
+draft, so the next time the keyboard opened, `start()` found no draft but
+stayed on `Screen.CREATE` and showed an empty panel. `start()` now also
+leaves `Screen.CREATE` whenever `getDraft` comes back empty.
+
+## Revision: Save says what happened, and where to start a new entry
+
+From `docs/IME-UX-REVIEW.md` P8/C5 (plan: `IME-UX-IMPROVEMENT-PLAN.md`
+Phase 2).
+
+- **The header's commit control is a labelled "Save" pill**, not a bare
+  "✓", and the subtitle reads "…then Save." The cancel control is an "✕"
+  vector glyph (`ic_close.xml`), not a text character.
+- **Save confirms before leaving.** `finishDraft` waits for `commitDraft`'s
+  answer, shows it in place of the panel for `SAVE_CONFIRM_MS` (1.2s), then
+  switches back to the previous keyboard:
+  - saved → "Saved to Vault — review it in the app."
+  - `false` with values in the draft → "Vault locked — the entry was saved
+    for review." (`commitDraft` reports `false` when the idle timeout had
+    already passed, and the lock that caused it saved the draft itself; a
+    draft with values can't come back `false` any other way.)
+  - `false` with nothing in it → "Nothing to save — the entry was empty."
+- **Starting a new entry.** The keypad's "+" key (only a faint coral tint
+  — the old, fully coral "Add Entry" key was the most prominent control on
+  a screen whose job is filling), or, when a search finds nothing, **Save new login for 'xyz'**
+  under "No matches", which titles the draft after the query. An existing
+  unfinished draft is resumed rather than replaced, either way.
+
+## Revision: switching keyboards mid-signup, and grab on return
+
+From `docs/IME-UX-REVIEW.md` P7 (plan: `IME-UX-IMPROVEMENT-PLAN.md` 3.3–3.5).
+The keyboard can't type into the page (option (b) above stays rejected), so
+typing a username or email means using the regular keyboard. Two changes
+make that round trip short:
+
+- **"Switch keyboard"** sits on the helper line under the header (the
+  keypad, and its globe key, are hidden on this screen). It switches back
+  to the keyboard the user came from; the draft survives, per "Session
+  lifetime".
+- **Grab on return.** When the keyboard is shown again with a draft active,
+  it reads the focused field's whole text (`onReadField`). If that's
+  non-blank and not already one of the draft's values, the top of the panel
+  asks **"Use “jane@x.com” for:"** with a chip per candidate field and
+  **Dismiss**, in a tinted callout above the field card. From a password field, only the draft's sensitive fields are
+  offered and the text shows as "••••"; otherwise the non-sensitive
+  single-line fields (not Notes), email fields first when the text looks
+  like an email — at most three. A chip saves the text into that field
+  (`setDraftField`); nothing is typed on the user's behalf. The text is held
+  only while the offer is showing — see `SECURITY.md`.
+
+## Revision: layout — one card, one main action per row
+
+The panel's layout was redesigned for readability; the full spec is
+`IME-DETAIL-CREATE-VISUAL-PASS.md`. In short:
+
+- **Header:** Cancel (✕) on the left, the title with the type selector
+  under it, **Save** (the panel's filled coral pill) on the right.
+- **Helper line:** "Type the rest with your usual keyboard." and **Switch
+  keyboard**.
+- **Callouts** (grab on return, notices) above the fields.
+- **Fields in one warm card**, rows at least 60dp: label and value on the
+  left ("Not set" when empty); on the right one main action — **Generate**
+  (filled coral, Password), **Pick** (outline, Email) or **Grab** (outline,
+  everything else) — plus a text **Fill** once the field has a value, and an
+  eye on Password. Email's Grab moved into its Pick list, as its first row
+  ("Use what's in the field").
+- **Password strength** is a thin bar under the value; the generator panel
+  and the saved-email list open inside their row.
+- **Discard** asks with an outline "Keep editing" and a red outline
+  "Discard"; **Save** shows a check in a coral ring and the result.
+
+A Login draft (five fields) now fits without scrolling.
 
 ## Deferred: Windows
 

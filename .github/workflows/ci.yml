@@ -144,7 +144,12 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # The action's default `packages` includes `tools`, a package current
+      # cmdline-tools no longer has, and sdkmanager fails the whole step on
+      # it. Everything the build needs is installed explicitly below.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install SDK and NDK packages
         run: |

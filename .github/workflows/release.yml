@@ -52,6 +52,17 @@ jobs:
 
       - run: npm ci
 
+      # Vite bakes the OAuth client IDs in at build time, and .env is
+      # gitignored, so without this the build is local-only. The Android ID
+      # is the release-key client, not the debug one — see the script.
+      - name: Configure Google Drive
+        shell: bash
+        env:
+          GOOGLE_CLIENT_ID_DESKTOP: ${{ secrets.GOOGLE_CLIENT_ID_DESKTOP }}
+          GOOGLE_CLIENT_SECRET_DESKTOP: ${{ secrets.GOOGLE_CLIENT_SECRET_DESKTOP }}
+          GOOGLE_CLIENT_ID_ANDROID: ${{ secrets.GOOGLE_CLIENT_ID_ANDROID }}
+        run: bash .github/scripts/write-env.sh
+
       # `tauri build` is release by default: the profile in Cargo.toml applies,
       # so this is LTO'd, size-optimised and stripped.
       - name: Build installers
@@ -93,7 +104,12 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # The action's default `packages` includes `tools`, a package current
+      # cmdline-tools no longer has, and sdkmanager fails the whole step on
+      # it. Everything the build needs is installed explicitly below.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install SDK and NDK packages
         run: |
@@ -132,8 +148,28 @@ jobs:
           done
           echo "TARGET_LIST=$list" >> "$GITHUB_ENV"
 
+      # Vite bakes the OAuth client IDs in at build time, and .env is
+      # gitignored, so without this the build is local-only. The Android ID
+      # is the release-key client, not the debug one — see the script.
+      - name: Configure Google Drive
+        shell: bash
+        env:
+          GOOGLE_CLIENT_ID_DESKTOP: ${{ secrets.GOOGLE_CLIENT_ID_DESKTOP }}
+          GOOGLE_CLIENT_SECRET_DESKTOP: ${{ secrets.GOOGLE_CLIENT_SECRET_DESKTOP }}
+          GOOGLE_CLIENT_ID_ANDROID: ${{ secrets.GOOGLE_CLIENT_ID_ANDROID }}
+        run: bash .github/scripts/write-env.sh
+
       - name: Initialise the Android project
         run: npx tauri android init
+
+      # Every hand-authored Android file — the keyboard (IME), this app's
+      # MainActivity, its theme resources — lives in src-tauri/android-ime/
+      # and only reaches gen/android/ through this. Skipping it still builds,
+      # just with Tauri's stub MainActivity and no keyboard at all. It also
+      # inserts the OAuth redirect intent-filter from the .env written above,
+      # without which Google sign-in can never return to the app.
+      - name: Sync the Android IME source
+        run: npm run android:sync-ime
 
       # --split-per-abi gives one APK per architecture rather than a universal
       # APK carrying every one of them. --target is last because it takes a

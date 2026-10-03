@@ -120,6 +120,21 @@ impl<R: Runtime> Vault<R> {
 
     // ------------------------------------------------------- window security
 
+    // ------------------------------------------------------------ keyboard
+
+    /// Android-only: Windows fills through the manual-fill hotkey, not a
+    /// keyboard of its own, so there is nothing to turn on here.
+    pub fn keyboard_status(&self) -> Result<KeyboardStatusResponse> {
+        Ok(KeyboardStatusResponse {
+            available: false,
+            enabled: false,
+        })
+    }
+
+    pub fn open_keyboard_settings(&self) -> Result<()> {
+        Err(Error::Unavailable)
+    }
+
     pub fn set_screen_capture_blocked(&self, _payload: ScreenCaptureRequest) -> Result<()> {
         // Android-only. Windows has `SetWindowDisplayAffinity`, but the PRD
         // scopes screen-capture protection to Android and nothing in the
@@ -543,10 +558,8 @@ mod autotype {
 /// checked against the `windows` crate's own generated documentation for
 /// `0.58` and Microsoft's UI Automation reference before being used — the
 /// same discipline `docs/MANUAL-FILL-DESIGN.md` used for the original
-/// `SendInput` code. But, like that code, none of it has been compiled or
-/// run in this sandbox (no Windows toolchain here, no way to `cargo check`
-/// the `cfg(windows)` half of this crate). Build and try this on the real
-/// machine before trusting it.
+/// `SendInput` code. It compiles against MSVC; whether it reports password
+/// fields correctly has to be tried against real forms on a real machine.
 #[cfg(target_os = "windows")]
 mod ui_automation {
     use std::thread;
@@ -599,18 +612,20 @@ mod ui_automation {
         variant_as_bool(&value)
     }
 
-    /// `UIA_IsPasswordPropertyId` always answers as `VT_BOOL`. Reading the
-    /// `VARIANT`'s own generated-binding layout directly (`vt` tags which
-    /// arm of the inner union is live; `boolVal` is a classic COM
-    /// `VARIANT_BOOL` — `-1` for true, `0` for false) avoids pulling in the
-    /// separate `VariantToBoolean` OleAuto helper, and its own extra
-    /// feature, for one field read.
-    fn variant_as_bool(value: &windows::Win32::System::Variant::VARIANT) -> Option<bool> {
-        let inner = unsafe { &value.Anonymous.Anonymous };
-        if inner.vt != VT_BOOL {
+    /// `UIA_IsPasswordPropertyId` always answers as `VT_BOOL`. From `windows`
+    /// 0.58 on, `VARIANT` is `windows::core::VARIANT` — an owning wrapper,
+    /// no longer the raw struct in `Win32::System::Variant` — so the raw
+    /// layout is reached through `as_raw()` (`vt` tags which arm of the
+    /// inner union is live; `boolVal` is a classic COM `VARIANT_BOOL` — `-1`
+    /// for true, `0` for false). Not the wrapper's `TryFrom<&VARIANT> for
+    /// bool`: that goes through `VariantToBoolean`, which coerces `VT_EMPTY`
+    /// to `false` — a confident "no" where this must answer "couldn't tell".
+    fn variant_as_bool(value: &windows::core::VARIANT) -> Option<bool> {
+        let inner = unsafe { &value.as_raw().Anonymous.Anonymous };
+        if inner.vt != VT_BOOL.0 {
             return None;
         }
         let raw = unsafe { inner.Anonymous.boolVal };
-        Some(raw.0 != 0)
+        Some(raw != 0)
     }
 }

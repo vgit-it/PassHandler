@@ -59,18 +59,18 @@ layout logic is unchanged.
 
 ## Card Number's chunked-fill treatment
 
-Card's Number field gets special treatment other fields don't: alongside
-the ordinary "Fill all" button (identical to every other field's plain
-Fill), a second "Split N/4" button commits the card number one 4-digit
-group at a time via `performChunkFill`, tracked by a `cardChunkProgress`
-counter (0–4) that relabels the button ("Split 1/4", "Split 2/4", …) and
-swaps to a disabled "✓ Filled" state once all four groups are committed —
-whether by tapping through every chunk or by "Fill all". That state is
+Card's Number field gets special treatment other fields don't: a two-way
+mode switch under its Fill, **Whole · 4 parts** (`IME-CONTROLS-REFINEMENT-PLAN.md` item
+2). In Whole, Fill types all 16 digits like any other field. In 4 parts,
+Fill commits one 4-digit group per tap via `performChunkFill`, tracked by a
+`cardChunkProgress` counter (0–4), and its label shows the next part
+("Fill 1/4", "Fill 2/4", …). Switching modes resets the count. Once all
+four groups are committed, Fill shows a disabled "Filled". That state is
 transient, not terminal: `FILLED_REVERT_MS` (1.5s, the same flash every
 other Fill button gets from `markFilled`) after it first renders,
 `scheduleCardFilledRevert` resets the counter to 0 and re-renders, so
-"Fill all"/"Split 0/4" come back clickable (it used to stay disabled until
-another entry was opened). `markFilled` alone couldn't cover this row: it
+Fill comes back clickable as "Fill 1/4" (it used to stay disabled
+until another entry was opened). `markFilled` alone couldn't cover this row: it
 reverts one `Button` instance, but by this point the row has been rebuilt
 around a different, permanently disabled one.
 This exists for sites whose card-number input is itself split into four
@@ -83,21 +83,14 @@ Claude.ai Project, not in this repo's `docs/` (see
 `docs/QUICK-FILL-RANKING-DESIGN.md`'s own opening line, which discloses the
 same external source for a different, earlier batch of changes it partially
 implements). Every other field, expiry included, keeps the plain
-single-button treatment, aside from expiry's own separate format-toggle
-chip (`performExpiryFill`, unrelated to chunking).
+single-button treatment, aside from expiry's own **MM/YY · YY/MM** switch
+(`performExpiryFill`, unrelated to chunking).
 
-## "Add Entry" — moved, then moved back
+## Where "add entry" lives
 
-The "+"/"Add Entry" key's position went through two changes:
-
-1. **Originally** on `spaceRow` itself, alongside "space" — `spaceRow`'s
-   optional right-key slot (the same rounded-rectangle `specialKey` shape
-   `buildBottomActionRow` already supports) rendering "Add Entry" there,
-   visible only on the search screen.
-2. **This pass moved it beside the search field instead.**
-3. **A later, direct request moved it back** to its original spot on
-   `spaceRow`, where it remains today — confirmed live in
-   `VaultKeyboardView.kt`'s `buildResultsHeaderRow`-adjacent comment, which
-   notes explicitly that this doc "first moved it beside the search field"
-   before the revert. The intermediate beside-search placement
-   (`buildResultsHeaderRow`) no longer exists in the current file.
+The keypad's last row: "space" plus a key-sized **+** key with a faint coral tint (the key gradient warmed toward coral, a light-coral glyph — see `IME-CONTROLS-REFINEMENT-PLAN.md`, "The + key")
+(`spaceRow`, search screen only), and — when a search finds nothing — a
+**Save new login for 'xyz'** button under "No matches". It was once a
+half-width coral "Add Entry" key in that row, and briefly a button beside
+the search field; neither is coming back — see `ACCOUNT-CREATION-DESIGN.md`'s
+"Revision: Save says what happened, and where to start a new entry".

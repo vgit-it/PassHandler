@@ -164,26 +164,34 @@ shelf height must not vary with content length.
 
 ### 4.2 Peg (the entry anchor)
 
-A token standing on the shelf. Flat plate, 34×34, `border-radius: 9px`, drop shadow only.
+A token standing on the shelf. A flat, **neutral** plate, 34×34, `border-radius: 9px`, no
+drop shadow. (Android's row cards draw it 50×50, radius 10px — size only; the recipe is the
+same.)
 
 ```css
 .peg {
   width:34px; height:34px; flex:0 0 34px; border-radius:9px;
   display:grid; place-items:center; overflow:hidden;
-  background: <entry color>;
-  color:#0a0d10; font-size:13px; font-weight:700;
-  box-shadow: 0 4px 8px -4px rgba(0,0,0,.75);
-  transition: transform 110ms var(--snap), box-shadow 110ms var(--snap);
+  background: rgba(255,255,255,.07);
+  color: <muted foreground>; /* Android: #d6e4ef at 75%. Windows: #b4bcc4 */
+  transition: transform 110ms var(--snap);
 }
-.shelf:active .peg { transform: translateY(3px); box-shadow: 0 1px 3px -1px rgba(0,0,0,.75); }
+.shelf:active .peg { transform: translateY(3px); }
 ```
 
-Contents, in priority order: cached favicon (20×20) → entry-type glyph → first letter.
-The plate color comes from the favicon's dominant color when available, otherwise a stable
-hash of the entry title. Never assign colors randomly per render.
+Contents, in priority order: cached favicon → entry-type glyph (the globe for a Login).
+
+The plate carries **no colour of its own** — every entry's plate is the same quiet grey, so
+the plates sit back and the titles lead. Per-entry colours (a hashed palette of eight solid
+hues) were tried and read as far too strong; don't bring them back. A site's favicon, when
+one is available, is drawn as-is and is the only colour a row has.
+
+The same plate is used everywhere an entry row shows one: Home's list, Upcoming, and the
+Android keyboard's result rows (`VaultKeyboardView.kt`'s `buildAvatar`, which must match).
 
 The peg sinks *in addition to* the shelf sinking. Both animate on press. This double motion is
 deliberate — it's what makes the peg read as resting on the shelf rather than glued to it.
+With no drop shadow, the sink alone carries it.
 
 ### 4.3 Section rail
 
@@ -389,7 +397,8 @@ this section once specified is permanently out of scope — do not build it, and
   contents are simply there when the doors fade. Large-area motion (a full-screen surface
   growing, a whole list settling) is exactly what reduced-motion users need removed.
 - Every interactive element has a ≥44px touch target. The peg is 34px but is not independently
-  tappable — the whole shelf is the target.
+  tappable — the whole shelf is the target. (The native Android IME is outside this spec and
+  has its own 40dp floor — see `docs/ime-ux-redesign-proposal.md`'s "Touch targets".)
 - Empty state lives on the wall, not on a shelf. No container, centered, `--dim`.
 
 ---

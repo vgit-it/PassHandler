@@ -665,63 +665,38 @@ function rowSubtitle(entry: VaultEntry): string {
   return field?.value ?? '';
 }
 
-// Used on both platforms (spec §4.2: "Plate color = favicon dominant color
-// when available, else stable hash of title. Never random per render.") —
-// an earlier pass in this redesign made Android's plate one uniform
-// `bg-actionbutton` blue instead, matching the Figma home-screen design's
-// own mock literally; reverted per request (every entry there uses the
-// exact same placeholder icon/color, so the mock never actually spoke to
-// per-entry variety one way or the other) — entries keep their
-// at-a-glance color distinction on both platforms, only the plate's own
-// size/radius still differs (see `EntrySiteIcon` below).
-// Dominant-color-from-favicon extraction is deferred (user's decision,
-// `docs/vault-visual-overhaul-plan.md` §1.3) — every peg uses the hash
-// fallback for now. Eight solid, opaque, muted hues, deliberately NOT
-// including anything blue-ish close to `--vault-accent` (#6b9dc6) — the
-// spec reserves accent for exactly three uses (§3.7) and a peg color that
-// reads as "the accent" would blur that. Paired with a fixed near-black
-// `#0a0d10` glyph/text color (spec §4.2) rather than each color's own
-// Tailwind `text-*` pairing — every peg's foreground is identical, only
-// the plate hue varies.
-const PEG_COLORS = [
-  '#c9835f', // terracotta
-  '#c7a23f', // brass
-  '#8caf5f', // moss
-  '#5fac93', // teal-green
-  '#9a8fc9', // steel violet
-  '#c97ba3', // rose plum
-  '#9aa3ad', // slate
-  '#c9955f', // ochre amber
-];
-const PEG_FOREGROUND = '#0a0d10';
-
-function pegColor(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return PEG_COLORS[hash % PEG_COLORS.length] ?? '#9aa3ad';
+// The peg's plate (spec §4.2): one neutral plate for every entry — a
+// faint white wash over the card, a soft light glyph. No per-entry colour:
+// a hashed palette of eight solid hues was tried and read as far too
+// strong, so don't bring it back. A favicon, when there is one, is the only
+// colour a row carries. The Android keyboard's rows (`VaultKeyboardView.kt`'s
+// `buildAvatar`) draw the same plate and must stay in step with this.
+const PEG_FILL = 'rgba(255,255,255,.07)';
+/** Android: Home's `#d6e4ef` foreground at 75%. Windows: `#b4bcc4`, the
+ * vault palette's slate-300. */
+function pegForeground(platform: Platform): string {
+  return platform.isAndroid ? 'rgba(214,228,239,.75)' : '#b4bcc4';
 }
 
 /**
  * The peg (`docs/vault-visual-language-spec.md` §4.2) — a site's favicon
- * when one can be fetched, otherwise a colored plate. The plate is not just
+ * when one can be fetched, otherwise the neutral plate. The plate is not just
  * a loading state — a fetch failure or a site with no icon lands here too,
  * so there is never a blank space where an icon would be.
  *
  * Exported for `UpcomingScreen.tsx` too (per the Figma "Upcoming" design,
  * node 118:528, which uses this exact card/icon recipe on Android) —
  * that screen used to import a separate `EntryPeg.tsx`, a fixed-34×34
- * component carrying the same `PEG_COLORS`/`pegColor` hash logic as a
- * second, drifting copy. Deleted rather than kept alongside this: grep
+ * component, a second, drifting copy of the plate. Deleted rather than kept alongside this: grep
  * confirmed it had no other consumers once `UpcomingScreen.tsx` switched
  * over, and one shared implementation of "how an entry gets its icon
  * plate" is worth more than a Windows-only size difference that this
  * component already handles via `platform` anyway.
  *
  * Android: per the Figma home-screen design — 50×50, `rounded-[10px]`,
- * rather than the spec's 34×34 `rounded-vault-inner`. Color is still the
- * hash palette on both platforms (see `PEG_COLORS`'s own doc for why an
- * earlier uniform-blue pass here was reverted) — only the box size/radius
- * and the glyph size (`h-7 w-7` vs `h-5 w-5`) differ by platform.
+ * rather than the spec's 34×34 `rounded-vault-inner`. Only the box
+ * size/radius, the glyph size (`h-7 w-7` vs `h-5 w-5`) and the glyph's
+ * tint differ by platform; the plate itself is the same neutral one.
  *
  * The non-favicon fallback is `GlobeIcon` on both platforms now, not a
  * plain letter — an inconsistency found while rewriting this, unrelated to
@@ -730,21 +705,19 @@ function pegColor(seed: string): string {
  * `GlobeIcon`; this was the one spot that never got updated when that
  * convention was set.
  *
- * `shadow-vault-peg` at rest; `group-active:` (reading the parent row
- * `<button>`'s own press state — see `Row`) drops it to
- * `shadow-vault-peg-pressed` and sinks the peg 3px, deliberately further
- * than the 2px the row itself moves, per spec §4.2's "double motion" — kept
- * on Android's card too, not just Windows' shelf: it's a plate-vs-button
- * relationship, not something specific to the shelf metaphor.
+ * No drop shadow (spec §4.2) — the plate is meant to sit back.
+ * `group-active:` (reading the parent row `<button>`'s own press state —
+ * see `Row`) sinks the peg 3px, deliberately further than the 2px the row
+ * itself moves, per spec §4.2's "double motion" — kept on Android's card
+ * too, not just Windows' shelf: it's a plate-vs-button relationship, not
+ * something specific to the shelf metaphor.
  *
  * Every variant carries `data-morph="icon"`: when a row is opened, this
  * plate flies to the detail view's own icon as a shared element
  * (`ShelfOriginPanel.tsx`).
  *
- * Colors are inline `style`, not Tailwind classes — `pegColor` values are
- * computed at runtime from a hash, and Tailwind's JIT compiler can only
- * generate classes that appear literally in source, so a template-literal
- * `bg-[${color}]` would silently produce no CSS.
+ * The plate's colours are inline `style` from `PEG_FILL`/`pegForeground`,
+ * so the recipe lives in exactly one place.
  */
 export function EntrySiteIcon({
   entry,
@@ -764,16 +737,17 @@ export function EntrySiteIcon({
   const [broken, setBroken] = useState(false);
 
   const boxClass = platform.isAndroid
-    ? 'h-[50px] w-[50px] shrink-0 rounded-[10px] shadow-vault-peg transition-[transform,box-shadow] duration-vault-press ease-vault-snap group-active:translate-y-[3px] group-active:shadow-vault-peg-pressed'
-    : 'h-[34px] w-[34px] shrink-0 rounded-vault-inner shadow-vault-peg transition-[transform,box-shadow] duration-vault-press ease-vault-snap group-active:translate-y-[3px] group-active:shadow-vault-peg-pressed';
+    ? 'h-[50px] w-[50px] shrink-0 rounded-[10px] transition-transform duration-vault-press ease-vault-snap group-active:translate-y-[3px]'
+    : 'h-[34px] w-[34px] shrink-0 rounded-vault-inner transition-transform duration-vault-press ease-vault-snap group-active:translate-y-[3px]';
   const glyphClass = platform.isAndroid ? 'h-7 w-7' : 'h-5 w-5';
+  const plateStyle = { backgroundColor: PEG_FILL, color: pegForeground(platform) };
 
   if (!isLogin) {
     return (
       <div
         data-morph="icon"
         className={`flex items-center justify-center ${boxClass}`}
-        style={{ backgroundColor: pegColor(entry.title || entry.id), color: PEG_FOREGROUND }}
+        style={plateStyle}
         aria-hidden="true"
       >
         <EntryTypeIcon icon={getEntryType(entry.type).icon} className={glyphClass} />
@@ -800,7 +774,7 @@ export function EntrySiteIcon({
     <div
       data-morph="icon"
       className={`flex items-center justify-center ${boxClass}`}
-      style={{ backgroundColor: pegColor(entry.title || url || entry.id), color: PEG_FOREGROUND }}
+      style={plateStyle}
       aria-hidden="true"
     >
       <GlobeIcon className={glyphClass} />

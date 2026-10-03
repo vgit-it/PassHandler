@@ -107,11 +107,26 @@ Copy the **SHA-1** line.
 VITE_GOOGLE_CLIENT_ID_ANDROID=123456789-hijklmn.apps.googleusercontent.com
 ```
 
-> **Debug and release keys have different fingerprints and need separate
-> clients.** Register a second Android client with your release keystore's SHA-1
-> before building an APK to hand out, and swap the value in `.env`.
+### The release client
 
-### Add the redirect intent-filter
+**Debug and release keys have different fingerprints and need separate
+clients.** Register a second Android client, same package name, with your
+release keystore's SHA-1. Get it from the keystore:
+
+```bash
+keytool -list -v -keystore vault-release.jks -alias vault
+```
+
+or from the summary of any `release.yml` run, which prints it after signing.
+
+The release client's ID does not go in your `.env` — that stays on the debug
+client for development. It goes in the `GOOGLE_CLIENT_ID_ANDROID` repository
+secret, which `release.yml` builds with; see
+[DISTRIBUTION.md](./DISTRIBUTION.md#what-a-release-apk-contains). If you build
+a release APK locally instead, set `VITE_GOOGLE_CLIENT_ID_ANDROID` to the
+release client for that build.
+
+### The redirect intent-filter
 
 Google's Android clients accept neither a loopback redirect nor the package name
 as a scheme. The redirect must use the **reversed client ID**:
@@ -121,27 +136,32 @@ as a scheme. The redirect must use the **reversed client ID**:
 → com.googleusercontent.apps.123456789-hijklmn:/oauth2redirect
 ```
 
-The app derives that URL from the configured client ID at runtime, but Android
-needs a matching `intent-filter` in the manifest, and the scheme is not known
-until you have created the client.
-
-After `npm run tauri android init`, open
-`src-tauri/gen/android/app/src/main/AndroidManifest.xml` and add this inside the
-existing `<activity android:name=".MainActivity">` element:
+The app derives that URL from the configured client ID at runtime, and Android
+needs a matching `intent-filter` on `MainActivity`:
 
 ```xml
 <intent-filter>
     <action android:name="android.intent.action.VIEW" />
     <category android:name="android.intent.category.DEFAULT" />
     <category android:name="android.intent.category.BROWSABLE" />
-    <!-- Reversed client ID. Replace with your own. -->
     <data android:scheme="com.googleusercontent.apps.123456789-hijklmn" />
 </intent-filter>
 ```
 
-`src-tauri/gen/` is generated and gitignored, so this edit lives on your machine
-and survives ordinary rebuilds. If you ever delete `gen/` and re-run
-`android init`, add it again.
+`npm run android:sync-ime` inserts it. The script reads
+`VITE_GOOGLE_CLIENT_ID_ANDROID` from the environment, falling back to `.env`,
+and writes the filter inside `<activity android:name=".MainActivity">`
+between its own marker comments. A re-run replaces that block, so after
+changing the client ID, re-run the script. With no Android client ID set it
+inserts nothing, and the app stays local-only on Android.
+
+The debug and release clients have different IDs, so each build carries only
+its own scheme: your local `gen/` gets the debug client's, and `release.yml`
+gets the release client's.
+
+If the manifest already has a hand-added filter for a *different*
+`com.googleusercontent.apps.*` scheme, the script stops and asks you to
+delete it, rather than leave two redirect targets in the app.
 
 ---
 

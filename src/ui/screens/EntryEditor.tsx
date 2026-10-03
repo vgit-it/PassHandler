@@ -12,7 +12,7 @@ import { MonthYearInput } from '../components/MonthYearInput';
 import { PasswordField } from '../components/PasswordField';
 import { Toggle } from '../components/Toggle';
 import { BackIcon, EyeIcon, EyeOffIcon, PlusIcon, TrashIcon } from '../components/icons';
-import { ENTRY_CREATION_WALL_GRADIENT, TypePicker } from './TypePicker';
+import { ENTRY_CREATION_PALETTE_CLASS, ENTRY_CREATION_WALL_GRADIENT, TypePicker } from './TypePicker';
 
 interface CustomFieldDraft {
   /** Local-only React key — stable while the user edits the visible `key`
@@ -428,15 +428,16 @@ function EntryForm({
   };
 
   return (
-    // Android: background only, per request — this step's own fields/
-    // labels/buttons below are untouched; only the container's wall gets
-    // `TypePicker.tsx`'s own `ENTRY_CREATION_WALL_GRADIENT` (that file's
-    // own doc has the full story — the same warm tint step 1 uses, so the
-    // two steps of one flow read as one continuous space rather than a
-    // wall color that changes hand-off).
+    // Android: the creation flow's warm wall and palette, the same as
+    // step 1 (`TypePicker.tsx`'s `ENTRY_CREATION_WALL_GRADIENT` and
+    // `ENTRY_CREATION_PALETTE_CLASS`), so the two steps read as one space
+    // and match the IME's new-entry panel. The class recolors every field,
+    // label and button below through the app's color tokens — colors only,
+    // no layout (`docs/ENTRY-CREATION-PALETTE-DESIGN.md`). Applies when
+    // editing an existing entry too: it's the same screen.
     <form
       onSubmit={submit}
-      className={`flex h-full flex-col ${platform.isAndroid ? '' : 'bg-ink-950'}`}
+      className={`flex h-full flex-col ${platform.isAndroid ? ENTRY_CREATION_PALETTE_CLASS : 'bg-ink-950'}`}
       style={platform.isAndroid ? { backgroundImage: ENTRY_CREATION_WALL_GRADIENT } : undefined}
     >
       <header className="flex items-center gap-2 px-4 pb-2 pt-3">

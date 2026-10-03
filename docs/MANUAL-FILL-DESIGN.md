@@ -312,7 +312,8 @@ Activity, and a strong reference would keep a destroyed Activity's webview
 webview exposes on `window`. (`readField(entryId, key)` generalises what
 was originally `readPassword(entryId)`, once the entry type expansion work
 gave a row more than one possible sensitive field to fill — see that
-section below.)
+section below. `readIcon(entryId)`, for the result rows' favicons, came
+later still — see "Result-row icons".)
 
 ```kotlin
 fun listEntries(callback: (List<FillEntry>) -> Unit) {
@@ -397,19 +398,140 @@ assumption.
 
 ### Picker UI: search and the on-screen keyboard
 
-`VaultIme`'s view is dark-themed (a search bar, a scrollable results list,
-and the on-screen keyboard below), built to roughly match a mockup the user
-supplied rather than default widget styling — see the file's own comments
-for the exact colors and spacing. The results list's height
-(`SEARCH_HEIGHT_DP`) is tuned to show roughly 2.5 rows before it scrolls.
-The locked state has its own separate header showing a "Vault" wordmark
-(`buildLockedHeader`); the unlocked, full picker view's top bar
-(`buildTopBar`) dropped that label — it's just the lock icon, a centered
-logo, and a "Clear" action now, per `docs/ime-ux-redesign-proposal.md`'s
-later revisions. Lock and Clear are gradient pills matching the main app's
-home-header buttons, and the logo is the home-screen wordmark
-(`ic_home_logo.xml`, 101 by 42dp) — see `docs/ime-visual-parity-plan.md`,
-item 10.
+`VaultIme`'s view is dark-themed (a top bar, a scrollable results region,
+the search box and the on-screen keyboard below), built to roughly match a
+mockup the user supplied rather than default widget styling — see the
+file's own comments for the exact colors and spacing.
+
+**One height for every screen.** Everything above the system's bottom inset
+is `BODY_HEIGHT_DP` (492dp) tall on every screen — search, entry detail,
+create, locked and loading — so the host app never re-lays out its page as
+the user moves between them. The results region takes whatever each screen
+leaves (layout weight 1): about 196dp on search (a section label plus three
+rows), more on detail and create, where the keypad hides. Below the body, a
+spacer keeps room for the system's own navigation controls
+(`withBottomInset`): the navigation-bar inset
+(`WindowInsets.Type.navigationBars()`), but never less than
+`BOTTOM_CLEARANCE_DP` (48dp). The floor matters with gesture navigation.
+The reported inset there is only ~16–24dp, but while a keyboard is up
+Android draws its hide-keyboard and switch-keyboard buttons in a 48dp
+strip, which then overlapped the keypad's bottom row. The spacer adds
+height under the body rather than taking it from the body, so the whole
+keyboard is taller by that amount and its content sits higher; nothing
+inside changes size. A same-app reopen keeps showing the previous view until the entries
+arrive instead of flashing a loading view; a first show or a show in a
+different app shows a full-height "Loading…".
+
+**Top bar.** A "Lock" pill (padlock plus label), **"Filling into
+Netflix"** centered (the calling app's name — it confirms the target before
+any fill and says what "Recent"/"Suggested" are relative to; the
+home-screen wordmark, `ic_home_logo.xml`, when the name isn't known), and a
+"Clear" pill. Both pills
+are 40dp gradient pills matching the main app's home-header buttons, with
+2dp of the 44dp bar showing above and below each — 40dp is the IME's own
+touch-target floor, an IME-only exception to the app's 44px (see
+`ime-ux-redesign-proposal.md`'s "Touch targets"). Clear reads the field's
+whole text before wiping it and turns into **Undo** for 5 seconds; Undo
+types the text back (held in memory only, dropped on timeout, focus change
+or dismiss — see `SECURITY.md`). There is no handle/grip bar between the
+results region and the search box (one was removed — it looked draggable
+and did nothing).
+
+**Locked.** The same top bar with only the wordmark, then "Vault is locked.
+Unlock it to fill passwords.", a primary **Unlock Vault**, and a secondary
+**Use other keyboard** so a locked vault never leaves the user stuck.
+
+**Result rows.** Each row is about 52dp: the entry's icon (next section),
+its title, and a one-line subtitle — a port of `EntryList.tsx`'s
+`rowSubtitle` (a Login's username, else its email; any other type's first
+non-sensitive single-line value, skipping date fields, which arrive as bare
+fill digits). A Login with a username or email *and* a password also gets a
+one-tap **Fill** chip: it fills the password if a password field is
+focused, otherwise the username (or email), whose "Fill, then Tab" then
+fills the password. What an empty query shows, and "No matches", are in
+`QUICK-FILL-RANKING-DESIGN.md`.
+
+**Search box and keypad.** The search box is a 40dp field in a 52dp row,
+with a ✕ that clears the whole query. Keys are 40dp tall (the IME's floor)
+with 6dp between rows. Backspace deletes on press and repeats while held
+(after 400ms, every 60ms). The 123 layer has a symbol row, `@ . - _ / & '`,
+under the digits, so an email, "t-mobile" or "at&t" can be searched. The
+keypad's last row is a **globe** key (switch to the next keyboard; hold for
+the system picker; hidden when the system already shows its own switch
+button, per `shouldOfferSwitchingToNextInputMethod`), "space", and a
+**+** key that starts a new entry, with a faint coral tint that hints at
+the coral create panel (`IME-CONTROLS-REFINEMENT-PLAN.md` "The + key"; no
+key is strongly coloured). Globe, backspace and + are vector glyphs, not text characters, and
+every key has a spoken label.
+
+**Entry detail.** The header shows the entry's icon, title, and "Login ·
+paul@example.com" (type plus the row subtitle); it isn't a back control —
+the keypad's **Back to results** is (it keeps the query). The fields sit in
+one rounded card, like the app's entry detail. Fields you'd actually fill
+come first — for a Login, username, email, password — and the URL, Notes
+and any multi-line field sit behind **More fields (N)**, the card's last row
+(`splitDetailFields`). Row layout is below ("Detail-view field rows") and
+in `IME-DETAIL-CREATE-VISUAL-PASS.md`.
+
+### Result-row icons
+
+Each search/recents row shows the same icon the app's own entry list
+(`EntrySiteIcon`, `EntryList.tsx`) shows for that entry: a Login's site
+favicon when one is available, otherwise the neutral plate carrying the
+entry type's glyph — the globe for a Login, `ic_type_*.xml` (a 1:1
+transcription of `entryTypeIcons.tsx`'s set) for every other type
+(`VaultKeyboardView.buildAvatar`).
+
+The IME still never touches the network. Favicons come over the bridge:
+`window.__vaultFill.readIcon(id)` (`store.tsx`) looks up the entry's URL and
+answers from a per-unlock cache filled by `platform.fetchFavicon` — the same
+direct-from-the-site, Rust-cached path the entry list uses, so no new
+fetching behavior exists. It answers `ready` (base64 bytes), `pending`
+(fetch in flight), or `none` (not a Login, no URL, site icons off in
+Settings, fetch failed, no icon). Design points:
+
+- **Asked per row, not bundled into `listEntries`.** `listEntries` is
+  re-polled every two seconds while the picker is open; resending every
+  icon's bytes on each poll would dwarf the list itself. Kotlin keeps
+  decoded bitmaps keyed by entry id + URL, cleared when the view goes
+  LOCKED.
+- **No retry loop.** A `pending` answer is simply re-asked on the next
+  auto-refresh re-render; a `ready` one is swapped into the row in place if
+  it's still on screen.
+- **Pre-warmed at unlock.** When the bridge is installed (the page is in the
+  foreground then), it starts `fetchFavicon` for every Login with a URL.
+  `readIcon` can be called while the page is fully backgrounded, and whether
+  an IPC round trip started from that state ever resolves isn't something to
+  depend on; the on-demand path only covers entries added after unlock.
+- **`readIcon` doesn't count as activity** (`enforceAutoLockOnBridgeCall(false)`,
+  same as `listEntries`) — the IME calls it on its own while rendering.
+- **What can't show.** Anything `BitmapFactory` can't decode (SVG favicons)
+  settles to the plate, like `EntrySiteIcon`'s `onError`. Plate and favicon
+  share one shape — a 32dp rounded square with a 7dp radius, the app's
+  Android peg scaled down — so the two read as one component; the favicon
+  has no plate behind it. Turning site icons off in Settings stops new icons immediately, but
+  bitmaps the keyboard already decoded stay until the next lock.
+
+### Per-app sessions, type labels, focused-field tracking, screen capture
+
+- **Search sessions are per calling app.** Reopening the keyboard in the
+  same app resumes the query, open entry and scroll position; opening it in
+  a different app starts an empty search. An in-progress account-creation
+  draft survives either way. See `QUICK-FILL-RANKING-DESIGN.md`'s "Session
+  persistence".
+- **Type labels come over the bridge.** `listEntries` sends each entry's
+  `typeLabel` (the registry's display name, "Secure Note") next to `type`
+  (the id, "secureNote"); the detail header shows the label. The registry
+  lives only on the JS side, so Kotlin never derives a label from the id.
+- **The keyboard knows whether the focused field is a password field.**
+  `VaultIme.onStartInput` passes every focus change's `EditorInfo` to
+  `VaultKeyboardView.onEditorInfoChanged`, which records
+  `focusedFieldIsPassword` (via `isPasswordInputType`) before handling the
+  post-Tab password check. The account-creation panel uses it to decide
+  what it may type into the page — see `ACCOUNT-CREATION-DESIGN.md`'s
+  "Revision: writing into the page safely, and confirming a discard".
+- **The keyboard window is `FLAG_SECURE`** — see `SECURITY.md`'s "Screen
+  capture on Android".
 
 Search is local-only: it filters the same entry list `WebViewBridge.
 listEntries` already fetched on show, by title or any non-sensitive,
@@ -515,21 +637,30 @@ Two decisions worth recording here rather than only in the code:
   space as a Login's two, just scrolled instead of stacked.
 
 **Detail-view field rows — current layout and fill feedback** (later
-revisions, on top of the two decisions above). Each `buildDetailFieldRow` is
-a vertical stack: the field's small muted label, its value (four dots for a
-sensitive field until "Show"), then the action chips in one horizontal row
-*below* the value — no longer label/value on the left with the chips at the
-right edge. Chips (`smallActionButton`) size to their text with 20dp of
-clearance either side (was 10dp), stay 44dp tall, and sit 6dp apart, so a
-sensitive field's "Show" + "Fill" or Card Number's "Fill all" + "Split N/4"
-line up side by side under the value.
+revisions, on top of the two decisions above; spec in
+`IME-DETAIL-CREATE-VISUAL-PASS.md`). Each `buildDetailFieldRow` is a card
+row at least 60dp tall: an 11sp upper-case label and the value (16sp
+medium; monospace for a sensitive value, "••••••••" until shown; "Not set"
+when empty) on the left, and on the right the eye (show/hide, sensitive
+fields only) and a fixed-width **Fill** pill (`detailFillButton`, 84dp), so
+every row's Fill lines up in one column. A revealed value's label adds
+"· hides in Ns". Card Number and Expiry add a two-way **mode switch**
+under their Fill, right-aligned with it (`IME-CONTROLS-REFINEMENT-PLAN.md` item 2). It
+changes what Fill types, so it looks like a setting (an outline with the
+chosen half lightly filled), not like Fill:
+- Card Number, **Whole · 4 parts**: Whole types all 16 digits; in 4 parts,
+  each tap types the next 4-digit group and Fill reads "Fill 1/4" …
+  "Fill 4/4".
+- Expiry, **MM/YY · YY/MM**: the order Fill types the digits in.
 
-Tapping a Fill chip disables it and flashes it green "✓ Filled!"
-(`markFilled`); the value commits after `FILL_FEEDBACK_DELAY_MS`, then the
-results area re-renders. `markFilled` also reverts its own chip after
+An empty value has no Fill and no switch.
+
+Tapping Fill disables it and flashes it green "Filled!" with a check glyph,
+keeping its pill shape (`markFilled`); the value commits after `FILL_FEEDBACK_DELAY_MS`, then
+the results area re-renders. `markFilled` also reverts its own chip after
 `FILLED_REVERT_MS` (1.5s), so no ordinary Fill path leaves a chip stuck
 disabled. The one row that needed more than that — Card Number's terminal
-"✓ Filled", which sits on a rebuilt button `markFilled` never touches — is
+"Filled", which sits on a rebuilt button `markFilled` never touches — is
 covered in `docs/ime-layout-v2-and-grab-design.md`'s "Card Number's
 chunked-fill treatment".
 
@@ -617,14 +748,14 @@ and `npm run android:sync-ime` (`scripts/sync-android-ime.js`) copies it into
 - `res/values/colors.xml` and both `res/values{,-night}/themes.xml` (the
   `home_background` window/system-bar color `MainActivity` depends on);
 - the IME service and preview-activity manifest blocks
-  (`manifest-fragments.xml`, inserted idempotently).
+  (`manifest-fragments.xml`, inserted idempotently);
+- the Google Drive OAuth redirect `intent-filter` on `MainActivity`, generated
+  from `VITE_GOOGLE_CLIENT_ID_ANDROID` rather than copied, since its scheme is
+  each developer's own client ID — see `docs/google-oauth-setup.md`.
 
 If you hand-edit any other file under `gen/android/`, move it into
 `src-tauri/android-ime/` and add it to the sync script in the same change —
-otherwise the next `android init` silently reverts it. The OAuth redirect
-intent-filter is the one deliberate exception: its value is per-developer,
-derived from each person's own OAuth client ID, so it stays a manual step;
-see `docs/google-oauth-setup.md`.
+otherwise the next `android init` silently reverts it.
 
 ## What changed from the first draft
 
@@ -700,8 +831,10 @@ the call itself counts as activity — the same "returning within the grace
 period resets the clock" rule the `visibilitychange` handler already
 applied to foregrounding, now covering IME-driven activity too.
 
-`listEntries` is the one function that opts out of that second half, via
-`enforceAutoLockOnBridgeCall(false)` — it still enforces the lock, just
+`listEntries` and `readIcon` are the two functions that opt out of that
+second half, via `enforceAutoLockOnBridgeCall(false)` (`readIcon` because the
+IME calls it on its own while rendering rows — see "Result-row icons"; the
+rest of this paragraph is about `listEntries`) — each still enforces the lock, just
 doesn't extend the session on the non-expired path. The reason is
 `VaultKeyboardView.kt`'s `autoRefreshRunnable`, which already
 re-calls `listEntries` every two seconds for as long as the picker is on
@@ -741,10 +874,11 @@ leaving the user to tab there by hand. And if that next field turns out to
 be a password field and the entry being filled has one, fill that too,
 without a second Fill tap.
 
-Both platforms do the "Tab, always" half identically: every ordinary fill
-(never a draft-pick fill on Android — see below) is immediately followed by
-a single Tab key press into the same target field the value was just typed
-into. Whether the second half — the password follow-up — actually happens,
+Windows does the Tab half on every ordinary fill. Android skips it after a
+password or after the entry's last field (see "Android" below); otherwise
+an ordinary fill (never a draft-pick fill on Android) is immediately
+followed by a single Tab key press into the same target field the value was
+just typed into. Whether the second half — the password follow-up — actually happens,
 and how it's decided, is where the two platforms genuinely diverge, because
 of a capability gap between them that was a real decision point, not an
 oversight:
@@ -846,16 +980,24 @@ ordinary-fill branch (never the draft-pick branch — tabbing away from
 whatever field the account-creation flow is actively targeting there would
 be surprising, not helpful, so that flow is deliberately untouched):
 
-1. `armPostFillTabAndPasswordCheck(entry)` calls `onSendTab()`
-   unconditionally, then — only if this entry has a fillable field keyed
-   `"password"` — arms `pendingPostFillPasswordEntry = entry` and schedules
+1. `armPostFillTabAndPasswordCheck(entry, field)` does nothing when the
+   field just filled was a password (the focused field is a password field,
+   or `field.key == "password"`) or was the entry's last field in the
+   detail view's display order — the next thing is usually the form's
+   submit button, and Tab would move focus somewhere unrelated ("Remember
+   me", "Forgot password?"). Otherwise it calls `onSendTab()`, then — only
+   if this entry has a fillable field keyed `"password"` — arms
+   `pendingPostFillPasswordEntry = entry` and schedules
    `clearPendingPostFillPasswordRunnable` (`POST_FILL_TAB_TIMEOUT_MS`,
-   1.5s) as a backstop in case the signal below never arrives.
+   1.5s) as a backstop in case the signal below never arrives. It runs for
+   a fill from the detail view and from a result row's one-tap Fill alike.
 2. The *next* `onEditorInfoChanged(info)` call consumes that arming
    unconditionally (whether or not `info` turns out to be a password field
    — an unrelated later focus change must never wrongly retrigger this),
    and, only if `isPasswordInputType(info)` says yes, reads and commits
-   this entry's password exactly like an explicit Fill tap would.
+   this entry's password exactly like an explicit Fill tap would — and, if
+   that entry's detail view is showing, flashes the Password row's Fill chip
+   "Filled!" (`autoFilledFieldKey`) so the second fill doesn't go unnoticed.
 3. `isPasswordInputType` checks `EditorInfo.inputType` against both the
    text-class password variations (`TYPE_TEXT_VARIATION_PASSWORD`,
    `_WEB_PASSWORD`, `_VISIBLE_PASSWORD` — a field shown unmasked by choice

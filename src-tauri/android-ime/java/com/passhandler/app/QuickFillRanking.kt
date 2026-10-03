@@ -66,6 +66,64 @@ object QuickFillRanking {
             .map { it.first }
     }
 
+    /**
+     * Entries that look like they belong to the calling app, for the
+     * empty-query list before anything's ever been filled from it —
+     * `docs/IME-UX-REVIEW.md` P2. Matches the app's display name ("Netflix",
+     * "Chase Mobile") and the meaningful segments of its package name
+     * (`com.netflix.mediaclient` → "netflix", "mediaclient") against each
+     * entry's title and, for a Login, its URL's host — all lower-cased with
+     * everything but letters and digits removed, so "Bank of America"
+     * matches "bankofamerica.com". A match is either string containing the
+     * other, both at least `MIN_MATCH_LENGTH` long, so "Chase" matches
+     * "Chase Mobile" and vice versa without two-letter noise. Ordered by
+     * frecency then title, capped at `SUGGESTIONS_LIMIT`.
+     *
+     * The caller skips browsers entirely: a browser's name and package say
+     * nothing about which site is open.
+     */
+    fun suggestions(context: Context, packageName: String, appLabel: String, entries: List<FillEntry>): List<FillEntry> {
+        val needles = (listOf(appLabel) + packageName.split('.').filter { it.lowercase() !in GENERIC_PACKAGE_SEGMENTS })
+            .map { normalize(it) }
+            .filter { it.length >= MIN_MATCH_LENGTH }
+            .toSet()
+        if (needles.isEmpty()) return emptyList()
+        return entries
+            .filter { entry ->
+                val haystacks = listOf(normalize(entry.title), normalize(urlHost(entry)))
+                    .filter { it.length >= MIN_MATCH_LENGTH }
+                haystacks.any { hay -> needles.any { needle -> hay.contains(needle) || needle.contains(hay) } }
+            }
+            .map { it to QuickFillUsage.score(context, packageName, it.id) }
+            .sortedWith(
+                compareByDescending<Pair<FillEntry, Double>> { it.second }
+                    .thenBy { it.first.title.lowercase() },
+            )
+            .take(SUGGESTIONS_LIMIT)
+            .map { it.first }
+    }
+
+    private const val SUGGESTIONS_LIMIT = 5
+    private const val MIN_MATCH_LENGTH = 3
+
+    // Package-name segments that say nothing about which service an app is.
+    private val GENERIC_PACKAGE_SEGMENTS = setOf(
+        "com", "org", "net", "io", "co", "app", "apps", "android", "mobile",
+        "client", "prod", "release", "www", "main",
+    )
+
+    private fun normalize(s: String): String = s.lowercase().filter { it.isLetterOrDigit() }
+
+    /** A Login's URL reduced to its host minus a leading "www." and the
+     * last label (the TLD) — "https://www.netflix.com/login" → "netflix" —
+     * so the TLD's letters can't produce a match on their own. */
+    private fun urlHost(entry: FillEntry): String {
+        val raw = entry.fields.firstOrNull { it.key == "url" }?.value?.trim().orEmpty()
+        if (raw.isEmpty()) return ""
+        val host = raw.substringAfter("://").substringBefore('/').substringBefore(':').removePrefix("www.")
+        return host.substringBeforeLast('.', host)
+    }
+
     // ── Matching ──────────────────────────────────────────────────────
 
     /**

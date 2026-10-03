@@ -21,3 +21,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** `package.json`'s version, injected by `vite.config.ts`'s `define`. */
+declare const __APP_VERSION__: string;

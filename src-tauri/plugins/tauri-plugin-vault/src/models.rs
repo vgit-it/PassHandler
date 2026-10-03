@@ -105,6 +105,16 @@ pub struct BiometricAuthenticateRequest {
     pub reason: String,
 }
 
+/// Android's own fill keyboard (`VaultIme`) — whether this platform has one,
+/// and whether the person has turned it on in the system's keyboard list.
+/// See `docs/ONBOARDING-TIPS-DESIGN.md`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyboardStatusResponse {
+    pub available: bool,
+    pub enabled: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScreenCaptureRequest {

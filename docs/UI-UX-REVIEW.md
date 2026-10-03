@@ -9,7 +9,7 @@ No code was changed. This is findings only.
 ## Top 5, ranked
 
 1. **FIXED.** ~~The app's own documented 44px touch-target floor is missed almost everywhere except the screens that were sized deliberately.~~ `docs/vault-visual-language-spec.md` §7 states it flatly: "Every interactive element has a ≥44px touch target." `.btn`/`.field` (`index.css`) computed to ~38–40px. **`py-2` → `py-3` on both shared classes** now puts every control built on them at ~46px (22px line-height + 24px padding), clearing the floor. Unlock's buttons, the entry shelf row, and `BottomTabBar`'s "+" already met it and are untouched.
-2. **FIXED.** ~~The IME's own redesign proposal states the identical 44dp floor, and the shipped top bar misses it too.~~ `docs/ime-ux-redesign-proposal.md` line 119: "Keep the tap target's touchable area at least 44dp." `TOP_BAR_HEIGHT_DP` is now `44` (was `40`); `buildTopBarLockButton`/`buildTopBarClearFieldButton` (`VaultKeyboardView.kt`) dropped their 4dp top/bottom margins and now fill the full bar height. Lock's icon keeps its exact old rendered size (padding grew 4dp→10dp in lockstep with the box, same 24dp content square) — only the invisible tap area grew, per the doc's own "even if the visible pill is smaller" framing. Clear-field got an explicit `minWidth = dip(44)` since a `WRAP_CONTENT` text label has no fixed box to grow with.
+2. **FIXED.** ~~The IME's top bar misses its own touch-target floor.~~ The IME's floor is **40dp** — an IME-only exception to the app's 44px rule, by direct request; see `docs/ime-ux-redesign-proposal.md`'s "Touch targets". The top bar's Lock/Clear-field used to be 32dp clickable (a 40dp bar minus 4dp top/bottom margins). Now `TOP_BAR_HEIGHT_DP` is 44 and `buildTopBarLockButton`/`buildTopBarClearFieldButton` (`VaultKeyboardView.kt`) have 40dp tap areas (`MIN_TOUCH_TARGET_DP`), each drawn as a 32dp rounded rectangle with 6dp of bar showing above and below. Clear-field has an explicit 40dp `minWidth`, since a `WRAP_CONTENT` text label has no fixed box.
 3. **FIXED.** ~~`smallActionButton` (every Fill/Show/Hide/Split chip in the IME's detail view) is 28dp tall~~ (`VaultKeyboardView.kt`, `dip(28)` → `dip(44)` layout height) — the single most-used interactive control in the whole keyboard, and the smallest, now meets the floor. `minWidth`/`minHeight` stay zeroed deliberately (unrelated to the floor — see the function's own updated doc comment).
 4. **Form errors in `EntryEditor.tsx` render once, at the very bottom of a long form, disconnected from the invalid field.** A missing-Title error shows below Notes while Title is the first field on the page — the skill's Priority-8 anti-pattern by name. *Not yet fixed — flagged, not implemented.*
 5. **`PasswordField.tsx`'s 1.5s scramble animation ignores `prefers-reduced-motion`**, in a codebase that implements the hook correctly elsewhere (`VaultDoors.tsx`) — makes this a real, fixable gap rather than a missing feature. *Not yet fixed — flagged, not implemented.*
@@ -64,23 +64,25 @@ Per `CLAUDE.md` and `vault-visual-overhaul-plan.md`, this is deliberate and trac
 
 ### 2–3. Touch targets — CRITICAL, the IME's biggest gap
 
-Same finding as the app, sharper: the IME's *own* design doc states the 44dp floor explicitly (`ime-ux-redesign-proposal.md` L119, L169) and the shipped top bar (`buildTopBarLockButton`, `buildTopBarClearFieldButton`) still lands at 32dp — `TOP_BAR_HEIGHT_DP = 40` minus 4dp top/bottom margins, with `minimumWidth`/`minimumHeight` explicitly zeroed rather than left at Android's own default touch-target padding. `smallActionButton` (`L1730`) — every Fill/Show/Hide/Split-N/4/Generate/Grab/Pick-from-Vault chip in both the detail view and the coral create panel — is `dip(28)` tall, same zeroed minimums. This is the control the person taps most often in the entire keyboard.
+Same finding as the app, sharper: the IME's *own* design doc states a touch-target floor explicitly (`ime-ux-redesign-proposal.md`'s "Touch targets" — 40dp, the IME's own exception to the app's 44px) and the shipped top bar (`buildTopBarLockButton`, `buildTopBarClearFieldButton`) still lands at 32dp — a 40dp bar minus 4dp top/bottom margins, with `minimumWidth`/`minimumHeight` explicitly zeroed rather than left at Android's own default touch-target padding. `smallActionButton` (`L1730`) — every Fill/Show/Hide/Split-N/4/Generate/Grab/Pick-from-Vault chip in both the detail view and the coral create panel — is `dip(28)` tall, same zeroed minimums. This is the control the person taps most often in the entire keyboard.
 
 Keys on the actual letter/number keypad are sized correctly by comparison — the doc comments show a deliberate history of bumping key height from 42dp down to 34dp and back up to 38dp "per the layout-v2 roomier pass," landing close to the floor. The keypad itself isn't the problem; the chrome around it is.
 
-### 6. Color/contrast — verified, passes
+### 6. Color/contrast
 
-Computed both palettes used in the IME:
+Current IME palette (recomputed after the visual-parity pass moved the IME
+to the Android app's colors — see `docs/IME-UX-REVIEW.md` A1):
 
 | Pair | Ratio |
 |---|---|
-| Blue-navy `MUTED_FOREGROUND` on `BACKGROUND`/`CARD` | 5.31 / 5.00:1 |
-| Blue-navy `SECONDARY_FOREGROUND` on `SECONDARY` (the pill-button text) | 8.61:1 |
-| Coral `CREATE_MUTED` on `CREATE_BG` (field labels) | 5.25:1 |
-| Coral `CREATE_ACCENT_TEXT` on `CREATE_ACCENT` (pill fill) | 7.73:1 |
-| Coral `CREATE_CHEVRON` on `CREATE_BG` | 6.81:1 |
+| `MUTED_FOREGROUND` (60% alpha) on `BACKGROUND` / `CARD` | 4.91 / 5.25:1 |
+| `SECONDARY_FOREGROUND` on the key/button gradient's top stop | 7.50:1 |
+| `CREATE_LABEL` on `CREATE_BG` / `CREATE_CARD` (field labels) | 6.27 / 5.42:1 |
+| `CREATE_ACCENT_TEXT` on the Save/Generate gradient's darker stop | 5.25:1 |
+| "Add Entry" key text on its gradient's bottom stop | 4.14:1 — **fails AA**; fixed by `IME-UX-IMPROVEMENT-PLAN.md` Phase 2 (C5, the key becomes neutral) |
 
-All pass AA at normal text size. No contrast issues found in either IME palette — both this session's color work and the pre-existing blue-navy detail view check out.
+Muted text is 60% alpha, not the app's `/50`: at 50% the 11–12sp labels
+measured 4.11:1 / 3.90:1, under AA.
 
 **Not current any more, as of `docs/ime-visual-parity-plan.md`**: that
 document migrates the blue-navy palette's hex values (to match the real
@@ -96,11 +98,11 @@ picked.
 
 ### 8. Feedback
 
-Fill actions get haptic feedback (`performHapticFeedback(VIRTUAL_KEY)`) consistently at tap sites checked. The "✓ Filled"/chunked-progress labels on the Card-number Split flow give the person an inline state readout instead of a toast that could be missed — a good pattern, matches the skill's Priority-8 "helper text over toast" guidance. (As audited this was persistent — the terminal "✓ Filled" stayed disabled until another entry was opened. It has since been made transient: it now reverts to a clickable "Fill all"/"Split 0/4" `FILLED_REVERT_MS` after it appears, see `docs/ime-layout-v2-and-grab-design.md`'s "Card Number's chunked-fill treatment". The in-progress "Split N/4" counter (1–3) is unchanged — it still holds until the fourth chunk lands or another entry is opened.)
+Fill actions get haptic feedback (`performHapticFeedback(VIRTUAL_KEY)`) consistently at tap sites checked. The "Filled"/chunked-progress labels on the Card-number chunked flow give the person an inline state readout instead of a toast that could be missed — a good pattern, matches the skill's Priority-8 "helper text over toast" guidance. The terminal "Filled" reverts to a clickable Fill and "Fill part 1 of 4" `FILLED_REVERT_MS` after it appears (see `docs/ime-layout-v2-and-grab-design.md`'s "Card Number's chunked-fill treatment"); the in-progress "Fill part N of 4" counter holds until the fourth chunk lands or another entry is opened.
 
 ### Design-doc discipline — a real strength
 
-Both `VaultIme.kt` and `VaultKeyboardView.kt` document *why*, not just what, at a level rare in a codebase this size: `switchToPreviousKeyboard`'s API-28 gate and its `switchToAnyOtherEnabledKeyboard` fallback for when the system's switch-history is empty; `grabTextFromTargetField`'s selection-vs-whole-field fallback order with a disclosed, unverified edge case (a host app's own selection toolbar disrupting `InputConnection` state); `onStartInputView`'s `restarting` guard, which exists specifically to stop the picker flickering on every digit typed into a `type="number"` field. This isn't a UX finding so much as a note that the codebase's own comments are already doing half the audit's job — several of this review's own findings (the 44dp commitments in particular) were found *because* the docs stated them explicitly enough to check against.
+Both `VaultIme.kt` and `VaultKeyboardView.kt` document *why*, not just what, at a level rare in a codebase this size: `switchToPreviousKeyboard`'s API-28 gate and its `switchToAnyOtherEnabledKeyboard` fallback for when the system's switch-history is empty; `grabTextFromTargetField`'s selection-vs-whole-field fallback order with a disclosed, unverified edge case (a host app's own selection toolbar disrupting `InputConnection` state); `onStartInputView`'s `restarting` guard, which exists specifically to stop the picker flickering on every digit typed into a `type="number"` field. This isn't a UX finding so much as a note that the codebase's own comments are already doing half the audit's job — several of this review's own findings (the touch-target commitments in particular) were found *because* the docs stated them explicitly enough to check against.
 
 ---
 
@@ -108,12 +110,12 @@ Both `VaultIme.kt` and `VaultKeyboardView.kt` document *why*, not just what, at 
 
 `MainActivity.kt`, `VaultImePreviewActivity.kt`, `QuickFillRanking.kt`/`QuickFillUsage.kt` were not read in this pass — none render UI directly. The smaller form components (`DateInput.tsx`, `MonthYearInput.tsx`, `DateFieldWithRenewal.tsx`) were read but produced no findings beyond what's already listed under Forms & Feedback above. `slate-500`'s actual call sites weren't exhaustively enumerated — flagged as a ratio failure, not yet as a confirmed list of every affected screen.
 
-## Status: the 44px/44dp gaps are fixed
+## Status: the touch-target gaps are fixed
 
 Implemented and verified (brace/paren-balance check on the Kotlin file, no compiler available in this sandbox — real build verification still needs `npm run build` / `tauri android dev` on the actual machine):
 
 - `src/index.css`: `.field`/`.btn` `py-2` → `py-3`.
-- `VaultKeyboardView.kt`: `TOP_BAR_HEIGHT_DP` 40 → 44, Lock/Clear-field's top-bar margins dropped, Lock's padding 4dp → 10dp (keeps the icon's rendered size, only grows the invisible tap area), Clear-field given an explicit `minWidth = dip(44)`, `smallActionButton`'s layout height `dip(28)` → `dip(44)`. (Later: Lock and Clear-field were given a visible gradient-pill background, so that 44dp area is no longer invisible — same dimensions; see `docs/ime-visual-parity-plan.md` item 10.)
+- `VaultKeyboardView.kt`: `TOP_BAR_HEIGHT_DP` 40 → 44, Lock/Clear-field now 40dp tap areas (`MIN_TOUCH_TARGET_DP`, the IME's 40dp floor), drawn as 32dp gradient rounded rectangles inside the bar, Clear-field given an explicit 40dp `minWidth`, `smallActionButton`'s layout height `dip(28)` → `dip(44)` (above the floor; left as is). See `docs/ime-visual-parity-plan.md` item 10.
 
 ---
 

@@ -116,10 +116,10 @@ export function VaultFrame({
    * itself, and the corner gaps outside this frame's own rounded corners
    * but still inside its bounding box — so instead of one smooth surface,
    * the gradient visibly stopped dead at the frame's edges. Left `false`
-   * by default (Detail/Upcoming share this same component but get here via
-   * their own `VaultScreen.tsx` call site passing this the same way; direct
-   * external callers and `Unlock.tsx` keep the opaque bezel, unaffected by
-   * any of this Figma work). The interior wall's own `radialWall` gradient
+   * by default; both Android call sites (`VaultScreen.tsx` and `Unlock.tsx`)
+   * pass it, and they must agree: a bezel painted on only one of them makes
+   * that screen's box look one bezel width bigger on every side, a jump at
+   * the lock/unlock hand-off. The interior wall's own `radialWall` gradient
    * still reads as a distinct, recessed plane against this now-transparent
    * bezel purely by being darker — no separate bezel fill is needed to
    * sell that contrast. */

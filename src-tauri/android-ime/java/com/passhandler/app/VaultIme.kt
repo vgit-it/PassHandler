@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputMethodManager
@@ -64,10 +65,33 @@ class VaultIme : InputMethodService() {
             },
             onSendTab = { sendTabKeyEvent() },
             onGrabFromField = { grabTextFromTargetField() },
+            onReadField = {
+                currentInputConnection?.getExtractedText(ExtractedTextRequest(), 0)?.text?.toString()
+            },
+            onSwitchToNextKeyboard = { switchToNextKeyboard() },
+            onShowKeyboardPicker = { getSystemService(InputMethodManager::class.java)?.showInputMethodPicker() },
+            offersKeyboardSwitch = {
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.P || shouldOfferSwitchingToNextInputMethod()
+            },
         )
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        secureWindow()
+    }
+
     override fun onCreateInputView(): View = keyboardView.buildLoadingView()
+
+    /** Marks the keyboard's own window `FLAG_SECURE`, the same protection
+     * `MainActivity` has: this window shows the vault's entry list and can
+     * reveal a sensitive value ("Show"), so screenshots, screen recording
+     * and casting must see it blacked out. `window` is the IME's own
+     * `Dialog`, created in `super.onCreate()`; re-asserted on every show
+     * (`onStartInputView`) in case the framework rebuilt it since. */
+    private fun secureWindow() {
+        window?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
 
     /** `armPostFillTabAndPasswordCheck`'s trigger — a real `KEYCODE_TAB`
      * down/up pair through `currentInputConnection`, the same path a
@@ -131,6 +155,7 @@ class VaultIme : InputMethodService() {
      * is already up — see the guard near the bottom of this method for why. */
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        secureWindow()
 
         // Never open the fill picker for a field inside Vault's own
         // app — there's nothing to fill *into* the vault's own UI from
@@ -151,7 +176,14 @@ class VaultIme : InputMethodService() {
             return
         }
 
-        keyboardView.setDetectedContext(resolveTitleGuess(info), resolveLikelySignup(info), info?.packageName ?: "")
+        val isBrowser = info?.packageName in KNOWN_BROWSER_PACKAGES
+        keyboardView.setDetectedContext(
+            titleGuess = resolveTitleGuess(info),
+            likelySignup = resolveLikelySignup(info),
+            packageName = info?.packageName ?: "",
+            appLabel = resolveAppLabel(info),
+            isBrowser = isBrowser,
+        )
 
         // `restarting=true` means the framework is re-showing the view for
         // the SAME field/session that was already up — not a fresh field,
@@ -184,10 +216,11 @@ class VaultIme : InputMethodService() {
      * visible and doesn't need rebuilding) and, importantly, a plain focus
      * change to a different field in the same app while this keyboard stays
      * open, which `onStartInputView` does *not* re-fire for. That second
-     * case is the one `armPostFillTabAndPasswordCheck`'s Tab actually needs
-     * — see `VaultKeyboardView.onEditorInfoChanged`'s own doc — so
-     * this forwards every call there unconditionally; it's a no-op there
-     * whenever nothing is currently armed. */
+     * case is the one `armPostFillTabAndPasswordCheck`'s Tab actually needs,
+     * and every call keeps the view's record of whether the focused field
+     * is a password field current — see
+     * `VaultKeyboardView.onEditorInfoChanged`'s own doc — so this forwards
+     * every call there unconditionally. */
     override fun onStartInput(info: EditorInfo?, restarting: Boolean) {
         super.onStartInput(info, restarting)
         keyboardView.onEditorInfoChanged(info)
@@ -197,7 +230,7 @@ class VaultIme : InputMethodService() {
      * the keyboard, switched apps, moved to a field that doesn't want a
      * keyboard, or (via `keyboardView`'s own remaining internal
      * `returnToPreviousKeyboard()` call sites) opened Vault to
-     * unlock, or tapped "Done" on the account-creation panel. Filling a
+     * unlock, or tapped "Save" on the account-creation panel. Filling a
      * value, or an in-progress draft, no longer finishes the input view on
      * its own — the picker deliberately stays open for both, see
      * `VaultKeyboardView.finishFill`'s doc. Whatever the reason,
@@ -238,6 +271,15 @@ class VaultIme : InputMethodService() {
      * way. Checked now, with `switchToAnyOtherEnabledKeyboard` as the
      * deterministic fallback rather than leaving that gap.
      */
+    /** The keypad's globe key: the next enabled keyboard, as every
+     * keyboard's globe key does (`switchToNextInputMethod`, API 28), falling
+     * back to `switchToPreviousKeyboard`'s chain when there's no "next" to
+     * go to or the API isn't there. */
+    private fun switchToNextKeyboard() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && switchToNextInputMethod(false)) return
+        switchToPreviousKeyboard()
+    }
+
     private fun switchToPreviousKeyboard() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             if (!switchToPreviousInputMethod()) switchToAnyOtherEnabledKeyboard()
@@ -299,8 +341,16 @@ class VaultIme : InputMethodService() {
      * own signup screen.
      */
     private fun resolveTitleGuess(info: EditorInfo?): String {
+        if (info?.packageName in KNOWN_BROWSER_PACKAGES) return ""
+        return resolveAppLabel(info)
+    }
+
+    /** The focused app's display name, unfiltered — "Chrome" in a browser,
+     * unlike `resolveTitleGuess`. Used for the picker's suggestions and
+     * section labels ("Suggested for Netflix", "Recent in Chrome"); empty
+     * when there's no `EditorInfo` or the package can't be resolved. */
+    private fun resolveAppLabel(info: EditorInfo?): String {
         val packageName = info?.packageName ?: return ""
-        if (packageName in KNOWN_BROWSER_PACKAGES) return ""
         return try {
             val label = packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0))
             label?.toString() ?: ""

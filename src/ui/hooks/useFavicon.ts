@@ -17,8 +17,10 @@ import { Platform } from '../../platform/ports';
 // Mirrors the Rust side's MAX_BASE64_LEN. Belt-and-suspenders: the host
 // already refuses to fetch or cache anything bigger, but a stale cache entry
 // written before that limit existed should still never reach an <img> tag
-// here, on any platform, from any build.
-const MAX_ICON_BASE64_LEN = 280_000;
+// here, on any platform, from any build. Exported for the IME bridge's own
+// `readIcon` (`store.tsx`), which applies the same cap before an icon ever
+// crosses into native code.
+export const MAX_ICON_BASE64_LEN = 280_000;
 
 export function useFavicon(platform: Platform, url: string, enabled: boolean): string | null {
   const [dataUrl, setDataUrl] = useState<string | null>(null);

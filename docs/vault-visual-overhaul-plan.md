@@ -63,9 +63,11 @@ header gear) all carries forward unchanged; only the visual shell changes.
    cube turn itself stays permanently off the table — not "until a later pass decides." That's
    narrower than "zero visual change, ever": a later, separate "colors only" pass did move many of
    Settings' text/background colors onto `--vault-*` tokens while keeping its ink-based card layout
-   entirely intact (`Settings.tsx`'s own doc comment notes this explicitly). Settings is still not
-   migrated to the vault visual language — it just isn't 100% `ink-*` either, the way it was when
-   this decision was written.
+   entirely intact (`Settings.tsx`'s own doc comment notes this explicitly). Its controls
+   (fields, buttons, toggles) then moved onto Home's palette too, through the `.palette-grey`/
+   `.palette-vault` scope classes that recolor the `ink-*` tokens
+   (`docs/SETTINGS-VISUAL-PASS.md`). Settings is still not migrated to the vault visual language
+   (no shelves, rails or frame): it keeps its card layout in Home's colors.
 
 **Also decided, not asked separately (matches this app's own existing, explicit policy):**
 no light-theme re-derivation. `tailwind.config.js` already states "Dark is the only theme...
@@ -125,8 +127,7 @@ screenshot method, covering both `platform.isAndroid` true/false.
   — only the text half was tappable before), `group`/`group-active:` drives the peg's independent
   press motion, a sibling `<span>` stands in for the spec's `.shelf::after` front-face+shadow since
   Tailwind can't target `::after` directly. `EntrySiteIcon` rebuilt as the peg — one 34×34 size on
-  both platforms, `PEG_COLORS` (8 solid hues, deliberately none blue-ish enough to read as
-  `--vault-accent`) replaces the old translucent-tint `AVATAR_COLORS`, fixed `#0a0d10` foreground.
+  both platforms, one neutral plate for every entry (spec §4.2 — per-entry colours were dropped as too strong).
   The search bar moved out of Android's header into one shared full-width "search shelf" band above
   the list on both platforms (`.search-shelf`/`.search`, spec §4.4) — Android's header lost its
   inline pill and its long-dead invisible "Vault" wordmark placeholder along with it.
@@ -137,7 +138,8 @@ screenshot method, covering both `platform.isAndroid` true/false.
   later Figma-parity pass noted throughout this section — see §6b below for what shipped there, and
   note that pass has itself since been superseded once more: tabs are icon-only (no
   `Upcoming`/`Home` labels), each with its own opacity-toggled pill instead of a sliding slug, and
-  the "+" is a coral/bronze gradient fill (`#bb8c7a`→`#ac6e55`), not `bg-vault-accent`. Read
+  the "+" is a soft coral gradient fill (`#D6B0A0`→`#BC907E`, the entry-creation flow's palette —
+  `docs/ENTRY-CREATION-PALETTE-DESIGN.md`), not `bg-vault-accent`. Read
   `BottomTabBar.tsx`'s own current doc comment rather than trusting this plan for its exact recipe.
 - **`VaultScreen.tsx`** — the tab-bar wrapper is now `inset-x-0 bottom-0` (flush) instead of a
   centered pill lifted 22px off the edge; the standalone Android "+" button is gone (it lives inside
@@ -202,7 +204,8 @@ across any phase.
   not painted by the frame itself) and a subtle inner hairline ring, wrapping a
   `rounded-vault-inner`/`overflow-hidden`/`bg-vault-wall` interior that
   clips its own content hard at the corner, matching the reference's
-  `.vault`/`.interior` recipe. Used only by `VaultScreen.tsx`.
+  `.vault`/`.interior` recipe. Used by `VaultScreen.tsx` and `Unlock.tsx`
+  (see the end of this section).
 - **`VaultScreen.tsx`** — restructured so the header sits above `VaultFrame`
   (spec's "Outside" plane) rather than inside it, and the search shelf/
   list/detail overlays render as `VaultFrame`'s children instead of
@@ -227,15 +230,6 @@ across any phase.
   close animation — see that file's own doc) but now share the same box
   geometry, so the open/shut animation reads as the vault itself instead of
   a color panel wiping across the whole screen.
-- **Known remaining seam, accepted rather than chased further:** `VaultDoors`
-  is mounted unconditionally at the App level and has no way to know the
-  header's height, so during the brief (400-550ms) unlock transition the
-  still-closing doors can overlap the header strip for a moment before
-  finishing their slide away. `Unlock.tsx` has no header/frame of its own
-  (a separate, pre-existing design — see decision 6 below), so this only
-  ever shows up transiently, right as `VaultScreen` first mounts — not a
-  persistent visual bug.
-
 **Follow-up bug, found after shipping the above:** the reworked doors above
 did not actually clear the screen edge at "open." Hand-copied preview HTML
 had missed this because it wasn't running the real component tree; catching
@@ -258,25 +252,39 @@ bezel) ± 2px)`, which clears the edge exactly regardless of viewport width.
 Re-measured after the fix: both doors' bounding rects sit fully off-screen
 (2px to spare) at 412px and 1000px viewport widths.
 
-**New decision, not asked separately (matches how this fix was scoped):**
-Unlock.tsx was deliberately left untouched — it has its own established
-design (a centered logo/form layout, referenced in code comments as "the
-Figma unlock-screen design"), predating the vault visual-language spec
-entirely. Wrapping it in `VaultFrame` too would mean the doors — decorative
-and never a real access gate — sit as an opaque layer over Unlock's actual
-interactive password field while locked, which would hide the one thing on
-that screen the user needs to use. The frame and doors both stay scoped to
-`VaultScreen` (and the App-level door overlay during the transition into
-it), not the lock screen itself.
+**The lock screen shares this frame, and on Android its box must match Home's exactly.**
+`Unlock.tsx` renders the same `VaultFrame`, with `VaultDoors` shut inside it
+and the login panel above the doors (`z-50`). At the lock → Home hand-off the
+two boxes have to sit on the same pixels, or the container visibly jumps.
+Three things have to agree, and each one was once wrong:
 
-**Status correction: this decision was later reversed, on direct request.**
-`Unlock.tsx`'s own current doc comment states: "As of the doors redesign
-(per request), this screen shares `VaultFrame` with `VaultScreen.tsx`" —
-`VaultDoors` now renders persistently shut behind this frame's own interior
-for the whole time the vault is locked. The concern above (doors hiding the
-password field) was evidently resolved some other way in that later pass
-rather than by keeping Unlock frame-less; read `Unlock.tsx` directly for
-the current mechanism rather than trusting this section.
+- **Top offset.** Unlock's top bar (`UNLOCK_TOP_BAR_HEIGHT_PX_ANDROID`) plus
+  the frame's 8px top margin equals `ANDROID_HEADER_HEIGHT_PX` (68), Home's
+  header height (`lockTransitionTiming.ts`). The header only really *is* 68px
+  if its contents fit, so its Lock/Settings pills have a fixed `h-11 w-11`
+  (44×44 including the border), the same size as Unlock's top-bar copies.
+  Sized by padding alone they measured 46×46, which made the header 70px.
+- **Bezel.** Both screens pass `transparentBezel` on Android. Home's visible
+  box is the interior; an opaque bezel on the lock screen alone made its box
+  9px bigger on every side.
+- **Safe-area insets.** Unlock's root is `absolute` against the viewport, so
+  it's inset by `env(safe-area-inset-*)` itself, the same way `#root` pads
+  Home and `VaultDoors` insets the doors. At `inset-0` its frame ran under
+  the status and gesture bars.
+
+Check any change here by measuring both frames with `getBoundingClientRect()`
+in the real `App` harness, with `#root` padded to stand in for the system
+bars. After this fix, at 412×900 with no insets, both frames are 8,68 396×824
+and the lock screen's doors sit exactly on Home's interior (17,77 378×806).
+With 30px/40px insets, both frames are 8,98 396×754. The top bar's contents
+follow the same rule: Unlock's top bar has `pt-2` on Android, so its buttons
+and logo centre at 34px like Home's header, not 4px higher. Windows wasn't
+part of this fix. It keeps the opaque bezel on both screens, and its
+header-height match wasn't measured.
+
+One known gap remains: once the unlock sequence ends, `VaultDoors` drops the
+top-bar offset and starts at the bare margin, so the auto-lock creep's door
+slivers run up behind `VaultHeaderBar` rather than stopping below it.
 
 ## 6b. Exact-match pass against `vault-ui-v9.html`
 
@@ -450,9 +458,8 @@ documented tiers (§4.2: "cached favicon → entry-type glyph → first
 letter") — `EntryPeg.tsx` skipped straight from favicon to first letter for
 Login specifically, never falling back to an entry-type glyph the way every
 other type's peg already does. Closed per request: a new `GlobeIcon`
-(`icons.tsx`) is now that middle tier for Login — same hash-colored plate
-(`pegColor`), same fixed `PEG_FOREGROUND`, just a globe glyph instead of a
-letter. No more first-letter tier at all; the two `EntryPeg` return paths
+(`icons.tsx`) is now that middle tier for Login — the same neutral plate
+as every other type, just a globe glyph instead of a letter. No more first-letter tier at all; the two `EntryPeg` return paths
 (favicon `<img>` vs. glyph-on-plate) collapsed into one shared plate path
 that only branches on which glyph (`GlobeIcon` for Login, the entry's own
 `EntryTypeIcon` for everything else), rather than keeping a separate

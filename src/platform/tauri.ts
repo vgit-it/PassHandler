@@ -17,6 +17,7 @@ import {
   HotkeyCombo,
   HotkeyStatus,
   ImportOutcome,
+  KeyboardStatus,
   LocalVaultStore,
   Platform,
   Settings,
@@ -265,6 +266,18 @@ export function createTauriPlatform(): Platform {
         // A decorative icon is never worth surfacing an error for.
         return null;
       }
+    },
+
+    async keyboardStatus() {
+      try {
+        return await callPlugin<KeyboardStatus>('keyboard_status', {});
+      } catch {
+        return { available: false, enabled: false };
+      }
+    },
+
+    async openKeyboardSettings() {
+      await callPlugin('open_keyboard_settings', {});
     },
 
     async setScreenCaptureBlocked(blocked: boolean) {

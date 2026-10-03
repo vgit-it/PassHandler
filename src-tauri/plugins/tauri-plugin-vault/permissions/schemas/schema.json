@@ -391,6 +391,30 @@
           "markdownDescription": "Denies the import_vault command without any pre-configured scope."
         },
         {
+          "description": "Enables the keyboard_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-keyboard-status",
+          "markdownDescription": "Enables the keyboard_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the keyboard_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-keyboard-status",
+          "markdownDescription": "Denies the keyboard_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_keyboard_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-keyboard-settings",
+          "markdownDescription": "Enables the open_keyboard_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_keyboard_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-keyboard-settings",
+          "markdownDescription": "Denies the open_keyboard_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the press_tab command without any pre-configured scope.",
           "type": "string",
           "const": "allow-press-tab",
@@ -499,10 +523,10 @@
           "markdownDescription": "Denies the type_text command without any pre-configured scope."
         },
         {
-          "description": "The full set of Vault's native commands. Every one of these is required by\nthe app, and none of them is a general-purpose capability: the secure store is\nkeyed to fixed account names, the biometric commands only gate access to key\nmaterial this app wrote, and the clipboard commands only touch the clipboard.\n\n#### This default permission set includes:\n\n- `allow-secure-store-set`\n- `allow-secure-store-get`\n- `allow-secure-store-delete`\n- `allow-biometric-status`\n- `allow-biometric-authenticate`\n- `allow-set-screen-capture-blocked`\n- `allow-clipboard-write-sensitive`\n- `allow-clipboard-clear-if-matches`\n- `allow-clipboard-schedule-clear`\n- `allow-clipboard-cancel-scheduled-clear`\n- `allow-export-vault`\n- `allow-import-vault`\n- `allow-type-text`\n- `allow-press-tab`\n- `allow-register-listener`\n- `allow-remove-listener`",
+          "description": "The full set of Vault's native commands. Every one of these is required by\nthe app, and none of them is a general-purpose capability: the secure store is\nkeyed to fixed account names, the biometric commands only gate access to key\nmaterial this app wrote, and the clipboard commands only touch the clipboard.\n\n#### This default permission set includes:\n\n- `allow-secure-store-set`\n- `allow-secure-store-get`\n- `allow-secure-store-delete`\n- `allow-biometric-status`\n- `allow-biometric-authenticate`\n- `allow-set-screen-capture-blocked`\n- `allow-clipboard-write-sensitive`\n- `allow-clipboard-clear-if-matches`\n- `allow-clipboard-schedule-clear`\n- `allow-clipboard-cancel-scheduled-clear`\n- `allow-export-vault`\n- `allow-import-vault`\n- `allow-type-text`\n- `allow-press-tab`\n- `allow-keyboard-status`\n- `allow-open-keyboard-settings`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "The full set of Vault's native commands. Every one of these is required by\nthe app, and none of them is a general-purpose capability: the secure store is\nkeyed to fixed account names, the biometric commands only gate access to key\nmaterial this app wrote, and the clipboard commands only touch the clipboard.\n\n#### This default permission set includes:\n\n- `allow-secure-store-set`\n- `allow-secure-store-get`\n- `allow-secure-store-delete`\n- `allow-biometric-status`\n- `allow-biometric-authenticate`\n- `allow-set-screen-capture-blocked`\n- `allow-clipboard-write-sensitive`\n- `allow-clipboard-clear-if-matches`\n- `allow-clipboard-schedule-clear`\n- `allow-clipboard-cancel-scheduled-clear`\n- `allow-export-vault`\n- `allow-import-vault`\n- `allow-type-text`\n- `allow-press-tab`\n- `allow-register-listener`\n- `allow-remove-listener`"
+          "markdownDescription": "The full set of Vault's native commands. Every one of these is required by\nthe app, and none of them is a general-purpose capability: the secure store is\nkeyed to fixed account names, the biometric commands only gate access to key\nmaterial this app wrote, and the clipboard commands only touch the clipboard.\n\n#### This default permission set includes:\n\n- `allow-secure-store-set`\n- `allow-secure-store-get`\n- `allow-secure-store-delete`\n- `allow-biometric-status`\n- `allow-biometric-authenticate`\n- `allow-set-screen-capture-blocked`\n- `allow-clipboard-write-sensitive`\n- `allow-clipboard-clear-if-matches`\n- `allow-clipboard-schedule-clear`\n- `allow-clipboard-cancel-scheduled-clear`\n- `allow-export-vault`\n- `allow-import-vault`\n- `allow-type-text`\n- `allow-press-tab`\n- `allow-keyboard-status`\n- `allow-open-keyboard-settings`\n- `allow-register-listener`\n- `allow-remove-listener`"
         }
       ]
     }

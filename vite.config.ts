@@ -1,6 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
+
+// Settings → About shows this. Read at build time from package.json, so
+// there's no runtime call (and nothing to keep in sync by hand).
+const appVersion = (
+  JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as { version: string }
+).version;
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -24,6 +31,10 @@ function stripCrossorigin() {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), stripCrossorigin()],
+
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
 
   resolve: {
     alias: {

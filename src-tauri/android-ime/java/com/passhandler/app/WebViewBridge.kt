@@ -105,6 +105,28 @@ object WebViewBridge {
     }
 
     /**
+     * One Login entry's site icon (favicon) for a result row — see
+     * `SiteIconResult` and `store.tsx`'s `readIcon`. The webview does the
+     * fetching and caching through the app's own favicon path; this side
+     * never touches the network. A detached webview or a missing bridge
+     * answers `None`, same "fails closed" shape as `listEntries`.
+     */
+    fun readIcon(entryId: String, callback: (SiteIconResult) -> Unit) {
+        val webView = webViewRef?.get()
+        if (webView == null) {
+            callback(SiteIconResult.None)
+            return
+        }
+        webView.post {
+            val script =
+                "window.__vaultFill && window.__vaultFill.readIcon && window.__vaultFill.readIcon(${jsStringLiteral(entryId)})"
+            webView.evaluateJavascript(script) { raw ->
+                callback(parseSiteIcon(raw))
+            }
+        }
+    }
+
+    /**
      * Fire-and-forget: ask the running app to lock the vault right now.
      * Used by the manual-fill keyboard's own "Lock" key — the picker
      * doesn't wait for a reply (there isn't one) and instead updates its
@@ -339,10 +361,12 @@ object WebViewBridge {
                 if (id.isEmpty()) {
                     null
                 } else {
+                    val type = obj.optString("type", "login")
                     FillEntry(
                         id = id,
                         title = obj.optString("title", ""),
-                        type = obj.optString("type", "login"),
+                        type = type,
+                        typeLabel = obj.optString("typeLabel", "").ifEmpty { type },
                         fields = parseFields(obj.optJSONArray("fields")),
                     )
                 }
@@ -375,6 +399,23 @@ object WebViewBridge {
                 dataType = obj.optString("dataType", "text"),
                 fillable = obj.optBoolean("fillable", true),
             )
+        }
+    }
+
+    private fun parseSiteIcon(raw: String?): SiteIconResult {
+        if (raw.isNullOrEmpty() || raw == "null") return SiteIconResult.None
+        return try {
+            val obj = JSONTokener(raw).nextValue() as? JSONObject ?: return SiteIconResult.None
+            when (obj.optString("status", "none")) {
+                "ready" -> {
+                    val data = obj.optString("dataBase64", "")
+                    if (data.isEmpty()) SiteIconResult.None else SiteIconResult.Ready(data)
+                }
+                "pending" -> SiteIconResult.Pending
+                else -> SiteIconResult.None
+            }
+        } catch (_: Exception) {
+            SiteIconResult.None
         }
     }
 
@@ -487,8 +528,27 @@ object WebViewBridge {
 }
 
 /** Enough to render a picker row and every one of its fill buttons — never a
- * sensitive field's value (see `FillField.value`). */
-data class FillEntry(val id: String, val title: String, val type: String, val fields: List<FillField>)
+ * sensitive field's value (see `FillField.value`). `type` is the registry id
+ * ("secureNote"), for logic; `typeLabel` its display name ("Secure Note"),
+ * for anything shown — never show `type` itself. */
+data class FillEntry(
+    val id: String,
+    val title: String,
+    val type: String,
+    val typeLabel: String,
+    val fields: List<FillField>,
+)
+
+/** Mirrors `store.tsx`'s `SiteIconResult`. `Ready` carries the image bytes
+ * still base64-encoded — decoding is the view's job (`VaultKeyboardView`),
+ * and an undecodable format (an SVG favicon, say) is treated there exactly
+ * like `None`. The JS side's `mime` isn't carried over: `BitmapFactory`
+ * sniffs the format from the bytes themselves. */
+sealed class SiteIconResult {
+    class Ready(val dataBase64: String) : SiteIconResult()
+    object Pending : SiteIconResult()
+    object None : SiteIconResult()
+}
 
 /** Mirrors `src/vault/types.ts`'s `EntryField` one-to-one. `dataType` is
  * carried through as the raw string `entry-types.ts` uses ("text",

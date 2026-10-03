@@ -83,6 +83,15 @@ export const SearchIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Marks a first-run tip (`TipCard.tsx`). */
+export const BulbIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 18h6" />
+    <path d="M10 21h4" />
+    <path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" />
+  </Svg>
+);
+
 export const LockIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="4" y="10" width="16" height="10" rx="2" />

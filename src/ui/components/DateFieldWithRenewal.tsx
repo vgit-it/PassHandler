@@ -133,9 +133,12 @@ export function DateFieldWithRenewal({
             <TrackToggle tracked={!!renewal.trackedInUpcoming} onChange={onRenewalTrackedChange} />
           </div>
 
+          {/* A bordered secondary button, not a bare text link — it opens a
+              panel, so it should read as a control. `.btn`'s own py-3 keeps
+              it at the 44px floor. */}
           <button
             type="button"
-            className="btn-ghost mt-1.5 px-0 text-xs font-medium text-slate-400 hover:bg-transparent hover:text-slate-200"
+            className="btn-secondary mt-2 px-3 text-xs"
             onClick={() => setCalcOpen((open) => !open)}
             aria-expanded={calcOpen}
           >
@@ -360,7 +363,9 @@ function AnchorDrift({
  * "Sensitive field") — this sits inline in a row of other icon-sized
  * controls (the text input, the calendar button), not in its own labelled
  * row, so a full-size switch would be visually heavier than the row around
- * it. See `upcoming-tab-design.md`.
+ * it. `self-stretch` makes it exactly as tall as the field beside it (and so
+ * the calendar button, which the date row stretches the same way), even in
+ * rows that are otherwise `items-start`. See `upcoming-tab-design.md`.
  */
 export function TrackToggle({
   tracked,
@@ -372,7 +377,7 @@ export function TrackToggle({
   return (
     <button
       type="button"
-      className={`shrink-0 rounded-lg border px-2.5 py-2 transition-colors ${
+      className={`flex shrink-0 items-center justify-center self-stretch rounded-lg border px-2.5 transition-colors ${
         tracked
           ? 'border-accent/50 bg-accent/15 text-accent'
           : 'border-ink-500 bg-ink-700 text-slate-400 hover:bg-ink-600 hover:text-slate-200'

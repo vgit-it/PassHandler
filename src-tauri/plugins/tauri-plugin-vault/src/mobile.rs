@@ -75,6 +75,20 @@ impl<R: Runtime> Vault<R> {
         self.run_unit("setScreenCaptureBlocked", payload)
     }
 
+    /// Whether `VaultIme` is turned on in the system's keyboard list —
+    /// Settings' "Vault keyboard" row.
+    pub fn keyboard_status(&self) -> Result<KeyboardStatusResponse> {
+        self.0
+            .run_mobile_plugin("keyboardStatus", serde_json::json!({}))
+            .map_err(Into::into)
+    }
+
+    /// Opens the system screen where keyboards are turned on and off. Android
+    /// gives apps no way to turn a keyboard on themselves.
+    pub fn open_keyboard_settings(&self) -> Result<()> {
+        self.run_unit("openKeyboardSettings", serde_json::json!({}))
+    }
+
     pub fn clipboard_write_sensitive(&self, payload: ClipboardWriteRequest) -> Result<()> {
         self.run_unit("clipboardWriteSensitive", payload)
     }

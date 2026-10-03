@@ -6,18 +6,24 @@ import { EntryTypeDef, entryTypesForPicker, searchEntryTypes } from '../../vault
 import { EntryTypeIcon } from '../components/entryTypeIcons';
 import { BackIcon, SearchIcon } from '../components/icons';
 
-/** The entry-creation flow's own wall tint — per the Figma type-picker
- * design (node 118:1068, `Container BG`): a warm brown-black radial
- * gradient, not the cool grey `VAULT_WALL_RADIAL_GRADIENT` (`VaultFrame.tsx`)
- * every other screen's wall uses. `#241a16` (this gradient's own center
- * stop) isn't a new color chosen for this — it's the exact hex already
- * pixel-sampled from the "+" button's own icon (`BottomTabBar.tsx`), so
- * the screen "+" leads into now visually echoes "+" itself. Exported so
- * `EntryEditor.tsx`'s own form step can reuse the identical value on its
- * own container (per request — background only there, no reference was
- * given for that step's own fields/components, unlike this one). */
+/** The entry-creation flow's own wall — a warm radial gradient, not the
+ * cool grey `VAULT_WALL_RADIAL_GRADIENT` (`VaultFrame.tsx`) every other
+ * screen's wall uses (the shape is from the Figma type-picker design, node
+ * 118:1068, `Container BG`). Its colors are the IME new-entry panel's
+ * muted warm grey (`#2A2725` at the center), so creating an entry looks
+ * the same in the app and in the keyboard
+ * (`docs/ENTRY-CREATION-PALETTE-DESIGN.md`); it was a stronger brown,
+ * `#241a16`. Exported so `EntryEditor.tsx`'s form step uses the identical
+ * value. The controls on top get the matching colors from
+ * `ENTRY_CREATION_PALETTE_CLASS`. */
 export const ENTRY_CREATION_WALL_GRADIENT =
-  'radial-gradient(ellipse at center, rgba(36,26,22,1) 0%, rgba(25,21,19,1) 100%)';
+  'radial-gradient(ellipse at center, rgba(42,39,37,1) 0%, rgba(32,30,29,1) 100%)';
+
+/** The class that swaps the app's color tokens (`ink`, `slate`, `accent`,
+ * `primary`, `bad`) for the entry-creation flow's warm palette — see
+ * `.palette-create` in `index.css`. Android only, on this screen's and
+ * `EntryEditor.tsx`'s root. Colors only. */
+export const ENTRY_CREATION_PALETTE_CLASS = 'palette-create';
 
 /**
  * Step 1 of adding an entry: pick a type.
@@ -45,7 +51,8 @@ export const ENTRY_CREATION_WALL_GRADIENT =
  * bare list rows (no card/button chrome, no hover fill — just an icon and
  * a label sitting directly on the wall), bigger per-type icons, larger
  * text, plain (non-sticky, no rail) section titles, and this screen's own
- * warm wall gradient (`ENTRY_CREATION_WALL_GRADIENT` above). Two things the
+ * warm wall gradient (`ENTRY_CREATION_WALL_GRADIENT` above) and palette
+ * (`ENTRY_CREATION_PALETTE_CLASS`). Two things the
  * reference itself doesn't speak to, kept rather than dropped:
  * - **The search box below the list.** Not in the static mock at all (a
  *   frozen frame can't show it either way) — same reasoning as every other
@@ -94,7 +101,7 @@ export function TypePicker({
 
   return (
     <div
-      className={`flex h-full flex-col ${isAndroid ? '' : 'bg-ink-950'}`}
+      className={`flex h-full flex-col ${isAndroid ? ENTRY_CREATION_PALETTE_CLASS : 'bg-ink-950'}`}
       style={isAndroid ? { backgroundImage: ENTRY_CREATION_WALL_GRADIENT } : undefined}
     >
       <header
@@ -106,29 +113,27 @@ export function TypePicker({
             `EntryDetail`'s "Put back" — this action abandons a not-yet-
             created entry, it doesn't return an existing one.
 
-            Every Android text/icon color on this screen was originally a
-            second, distinct off-white family (`#6C7681` here, `#9da1a2`/
-            plain `white` further down) rather than the home screen's own
-            single "legible foreground" hex, `#d6e4ef` — the same
-            inconsistency `EntryDetail.tsx` had and was standardized away
-            from, per the same explicit request applied here too, so this
-            screen reads as one palette with the rest of the app instead of
-            a third, slightly-different grey family of its own. */}
+            Every Android text/icon color on this screen is one off-white,
+            `#F2EDEA` (the IME new-entry panel's, at different opacities),
+            so the screen reads as one palette with the rest of the
+            creation flow (`docs/ENTRY-CREATION-PALETTE-DESIGN.md`). It was
+            the home screen's cool `#d6e4ef`, and before that a mix of
+            three greys. */}
         <button
           className={
             isAndroid
-              ? 'p-2 text-[#d6e4ef]/50 transition-opacity active:opacity-60'
+              ? 'p-2 text-[#F2EDEA]/50 transition-opacity active:opacity-60'
               : 'btn-ghost px-2'
           }
           onClick={onCancel}
           aria-label="Cancel"
         >
-          <BackIcon className={isAndroid ? 'h-6 w-6 text-[#d6e4ef]/50' : undefined} />
+          <BackIcon className={isAndroid ? 'h-6 w-6 text-[#F2EDEA]/50' : undefined} />
         </button>
         <h1
           className={
             isAndroid
-              ? 'text-lg font-medium text-[#d6e4ef]/80'
+              ? 'text-lg font-medium text-[#F2EDEA]/80'
               : 'text-sm font-semibold text-slate-200'
           }
         >
@@ -145,7 +150,7 @@ export function TypePicker({
         {searching ? (
           searchResults.length === 0 ? (
             <p
-              className={`mt-6 text-center text-sm ${isAndroid ? 'text-[#d6e4ef]' : 'text-slate-400'}`}
+              className={`mt-6 text-center text-sm ${isAndroid ? 'text-[#F2EDEA]' : 'text-slate-400'}`}
             >
               No matching entry type.
             </p>
@@ -163,7 +168,7 @@ export function TypePicker({
                 <div
                   className={
                     isAndroid
-                      ? 'mb-2 flex h-6 items-center text-[14px] font-medium uppercase text-[#d6e4ef]/60'
+                      ? 'mb-2 flex h-6 items-center text-[14px] font-medium uppercase text-[#F2EDEA]/60'
                       : 'sticky top-0 bg-ink-950 py-1 text-xs font-semibold uppercase tracking-wide text-slate-400'
                   }
                 >
@@ -186,11 +191,13 @@ export function TypePicker({
           // uses (see that file's own doc) — not in the reference at all
           // (this file's own top doc explains why it's kept anyway), but
           // reusing the app's one established search-field look rather
-          // than inventing a second.
-          <div className="flex h-[42px] items-center gap-[6px] rounded-[20px] border border-[#4d5761]/70 bg-[#1f252d]/70 px-[20px]">
-            <SearchIcon className="h-4 w-4 shrink-0 text-[#d6e4ef]/50" />
+          // than inventing a second. Its colors are the creation flow's
+          // warm ones (`ink-800`/`ink-500` inside `.palette-create`), not
+          // the home bar's navy `#1f252d`/`#4d5761`.
+          <div className="flex h-[42px] items-center gap-[6px] rounded-[20px] border border-[#5A514C]/70 bg-[#36312E]/70 px-[20px]">
+            <SearchIcon className="h-4 w-4 shrink-0 text-[#F2EDEA]/50" />
             <input
-              className="h-full w-full bg-transparent text-[16px] text-[#d6e4ef] placeholder:text-[#d6e4ef]/50 focus:outline-none"
+              className="h-full w-full bg-transparent text-[16px] text-[#F2EDEA] placeholder:text-[#F2EDEA]/50 focus:outline-none"
               placeholder="Search entry types"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -239,20 +246,17 @@ function TypeRow({
     // the wall. `active:opacity-70` is this component's own addition for
     // basic touch feedback (a frozen mock can't show a pressed state
     // either way) — same reasoning as `EntryDetail`'s bare Back button.
-    // 41×41 icon, `#d6e4ef` — confirmed via the reference's own exported
-    // SVG (`stroke="#D6E4EF"`, no fill), not eyeballed off the screenshot.
-    // The label itself is `#d6e4ef` too now, not plain `white` — the same
-    // off-white-family standardization as this file's header (see that
-    // block's own doc) applied to the actual list content, which is the
-    // most visible instance of the pattern on this whole screen.
+    // 41×41 icon. Icon and label are the creation flow's off-white
+    // `#F2EDEA` (see the header's own doc above); the reference's exported
+    // SVG had `#D6E4EF`, the home screen's cooler one.
     return (
       <li>
         <button
           className="flex w-full items-center gap-[13px] py-0.5 text-left transition-opacity active:opacity-70"
           onClick={() => onSelect(type.id)}
         >
-          <EntryTypeIcon icon={type.icon} className="h-[41px] w-[41px] shrink-0 text-[#d6e4ef]" />
-          <span className="truncate text-[18px] font-medium text-[#d6e4ef]">{type.label}</span>
+          <EntryTypeIcon icon={type.icon} className="h-[41px] w-[41px] shrink-0 text-[#F2EDEA]" />
+          <span className="truncate text-[18px] font-medium text-[#F2EDEA]">{type.label}</span>
         </button>
       </li>
     );

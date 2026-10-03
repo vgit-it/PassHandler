@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The "insurance" entry-type glyph, transcribed 1:1 from the web app's
+  `InsuranceTypeIcon` (`src/ui/components/icons.tsx`) at that file's shared 24x24,
+  1.8px-stroke grid (`<rect>`/`<circle>` rewritten as equivalent paths).
+  Shown by `VaultKeyboardView.buildAvatar` for a non-Login entry, the same
+  glyph `EntrySiteIcon` (`EntryList.tsx`) puts on that entry's plate. The
+  `#E2E6EA` color is a placeholder: every call site applies its own
+  `setColorFilter` (`PEG_FOREGROUND`), same as `ic_globe.xml`.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M12 3L4.5 6v6c0 5 3.2 8 7.5 9c4.3 -1 7.5 -4 7.5 -9V6Z"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M9 12l2 2l4 -4.5"
+        android:strokeColor="#E2E6EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>

@@ -52,6 +52,11 @@ distribution over 100,000 samples (a modulo implementation would show a visible
 low-end skew), and a scan of `src/` for `Math.random` that backs up the ESLint
 rule.
 
+**First-run tips** (`tests/tips.test.ts`) — no sequence over 3 tips and no
+tip over 12 words, for every platform/Drive combination; the back-to-back
+rule; `fill` waiting for a seen `home` and at least one entry; a seen
+sequence never returning. See [ONBOARDING-TIPS-DESIGN.md](./ONBOARDING-TIPS-DESIGN.md).
+
 ### `cargo check`
 
 Both targets pass clean. The `x86_64-pc-windows-gnu` cross-check is a fast local
@@ -185,12 +190,136 @@ transport.
 - **Android**: with the vault unlocked, open the task switcher — the preview
   must be blank. A screenshot attempt must be refused. Copy a password and
   check it does not appear in the clipboard preview or history.
+- **Android IME**: with site icons on, unlock, switch to another app and open
+  the manual-fill keyboard — Login rows show the same favicons as the app's
+  entry list, other types their type glyph. Add a Login from the IME's
+  create flow and confirm its favicon also appears (this is the on-demand
+  path, requested while the app is backgrounded — see
+  [MANUAL-FILL-DESIGN.md](./MANUAL-FILL-DESIGN.md)'s "Result-row icons").
+  The top bar's Lock/Clear are rounded rectangles (not pills), visibly
+  shorter than the bar (about 6dp of bar above and below) and still easy
+  to hit. The keypad's "+" has a faint coral tint — noticeable, but
+  quieter than any coral button in the create panel.
+- **Android IME, safety** (`IME-UX-IMPROVEMENT-PLAN.md` Phase 1):
+  - With the keyboard up, take a screenshot and start a screen recording —
+    the keyboard area must be black in both.
+  - Open an entry's detail in app A, then open the keyboard in app B: it
+    must show an empty search. Back in app A, the entry is still open.
+  - Start a new entry from the keyboard with the *username* field focused
+    and tap Generate: the username must stay untouched, the panel says the
+    password was saved to the entry, and the password row's Fill types it
+    once you focus the password field. With the password field focused,
+    Generate types it directly.
+  - After generating, tap ✕: a "Discard this entry?" bar appears; Keep
+    editing returns to the panel. An untouched new entry cancels at once.
+  - Save a new entry (✓), reopen the keyboard: it shows search, not an
+    empty new-entry panel.
+  - Open a Secure Note or Wi-Fi entry: the header reads "Secure Note" /
+    "WiFi", not "SecureNote" / "Wifi".
+- **Android IME, fill flow** (`IME-UX-IMPROVEMENT-PLAN.md` Phase 2):
+  - The keyboard is the same height on search, an entry's detail, a new
+    entry, the locked view and while loading — the page behind it doesn't
+    jump when moving between them. Check the gap under the keypad with both
+    gesture and 3-button navigation: it should just clear the system bar.
+  - The search screen shows a section label and three rows; each Login row
+    shows its username under the title and a Fill chip.
+  - In a native app never filled from before (e.g. Netflix, with a
+    "Netflix" entry), the empty search shows "Suggested for Netflix". In
+    Chrome, the list is labelled "Recent in Chrome"; with nothing to show,
+    "Type to search your vault".
+  - On a sign-in form with the username focused, tap a Login row's Fill:
+    the username fills, focus moves to the password, and the password fills.
+    Open the entry's detail and repeat from its Username Fill: the Password
+    chip flashes "Filled!" when the password lands. No Tab after the
+    password.
+  - Type a query with no matches: "Save new login for '…'" starts a new
+    entry titled after it.
+  - The ✕ in the search box clears the query; holding backspace deletes
+    repeatedly.
+  - Detail view: URL and Notes sit under "More fields (2)"; "Back to
+    results" keeps the query.
+  - Tap Clear on a filled field: it empties, the pill reads "Undo" for ~5s,
+    and Undo restores the text. Tapping into another field ends the undo.
+  - Save a new entry: "Saved to Vault — review it in the app." shows for
+    about a second before the keyboard steps away.
+  - Lock the vault from the keyboard: the locked view explains itself and
+    "Use other keyboard" switches away.
+- **Android IME, bottom clearance** (`MANUAL-FILL-DESIGN.md`, "One height
+  for every screen"): with gesture navigation and with 3-button
+  navigation, the system's buttons under the keyboard (hide keyboard,
+  switch keyboard, or back/home/recents) sit in clear space below the
+  keypad's bottom row and the new-entry card, never over them.
+- **Android IME, structural** (`IME-UX-IMPROVEMENT-PLAN.md` Phase 3):
+  - The top bar reads "Filling into <app>" in a native app and "Filling
+    into Chrome" in Chrome; the wordmark shows when there's no name.
+  - Keys are visibly a little shorter; the search box's ✕ still fits.
+  - "123" shows digits, then `@ . - _ / & '`: search for an email address.
+  - The globe key switches to your other keyboard; holding it opens the
+    system picker. If the navigation bar already shows a keyboard-switch
+    button, the globe key may be absent — expected.
+  - Start a new entry, tap "Switch keyboard", type an email into the page's
+    email field, switch back to Vault: "Use “…” for:" offers Email first;
+    tapping it fills the entry's Email row. From a password field the text
+    shows as "••••" and only Password is offered.
+- **Android app, entry creation colors** (`ENTRY-CREATION-PALETTE-DESIGN.md`):
+  - The Home "+" is soft coral, matching the keyboard's Save button.
+  - Type Picker and editor: warm grey wall and fields, off-white text, a
+    coral Save, and coral focus rings, toggles and links. Nothing is navy
+    or blue.
+  - A validation error is readable. Editing an existing entry looks the
+    same.
+  - Everything else (Home, entry detail, Settings, Unlock) is unchanged.
+- **Settings colors, both platforms** (`SETTINGS-VISUAL-PASS.md`):
+  - The dropdowns, buttons and password fields match the grey cards on
+    Android and the dark shelves on Windows. Nothing is navy, and
+    "Change password" is steel blue.
+  - "Show site icons", when off, shows a visible grey track, not just a dot.
+    Tapping just above or below a toggle flips it.
+  - Section titles and the grey hints under each setting are easy to read.
+  - Android: the header matches Entry Detail's (larger back arrow and
+    title), and the list ends without a large empty gap below Recovery.
+  - Recovery's buttons read "Export", "Undo session" and "Replace…". With
+    Drive disconnected, "Replace…" shows "Connect Google Drive first."
+    under its two choices.
+  - An off toggle in the entry editor is slightly brighter than before,
+    and nothing else changed there.
+- **Android IME, field screens** (`IME-DETAIL-CREATE-VISUAL-PASS.md`):
+  - Entry detail: the fields sit in one rounded card; a Login's username,
+    email and password fit without scrolling; every Fill lines up in one
+    column; the eye shows a password with "· hides in Ns" on its label.
+    A card's number row has a "Whole · 4 parts" switch under its Fill; in
+    4 parts, Fill reads "Fill 1/4" and advances with each tap, and a
+    site with four separate boxes gets one group each. An expiry row's
+    "MM/YY · YY/MM" switch changes the order Fill types. Neither switch
+    looks like Fill.
+  - New entry: the panel reads as warm grey, not brown, and its coral is
+    soft — close in tone to the top bar above it (`IME-CREATE-PALETTE-MUTE-PLAN.md`).
+    "Weak" under a password is readable.
+  - New entry: ✕ on the left, Save on the right; a Login's five fields fit
+    without scrolling; empty fields read "Not set"; only Save and Generate
+    are filled coral. Tap the type under the title: the type list replaces
+    the fields; picking Wi-Fi switches the fields. Generate: the password
+    shows in plain text in its row straight away; the eye hides it until
+    the next regeneration. The character-class toggles are outlines
+    (accent outline and a check when on), never filled. Email's Pick list starts with "Use what's
+    in the field".
 - **Windows**: search takes focus on unlock; arrow keys move the selection;
   Enter copies the highlighted password; `Ctrl+L` locks; `Ctrl+F` focuses
   search. Closing the window locks the vault.
 - **Both**: copy a password, watch the countdown, and confirm the clipboard is
   cleared at zero. Copy a password, then copy something else yourself, and
   confirm your text survives the timer.
+- **Both, first-run tips**: Settings → About → Reset, then lock and unlock.
+  The Home tips appear after the unlock animation (top of the vault on
+  Android, bottom on Windows), never over the search band or "+". Skip ends
+  the sequence; locking mid-sequence brings it back from tip 1. Settings
+  shows its own tips; after finishing Home's, the fill tips wait for the
+  next unlock. About's text expands and collapses, and shows the version.
+- **Android, Vault keyboard row** (Settings → Security; its Kotlin half has
+  never been compiled here): with Vault's keyboard off, the row says so
+  and **Turn on** opens the system keyboard list. Turn it on, come back:
+  the row reads "On" without leaving Settings, and the vault is still
+  unlocked. Not shown on Windows.
 
 ### 7. No plaintext on disk
 

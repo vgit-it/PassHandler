@@ -31,16 +31,47 @@ descending then title alphabetically, and returns the flattened list.
 
 Pinning was scoped out: frecency alone, no user-facing pin/favorite toggle.
 
-**Recents — `QuickFillRanking.recents()`.** An empty query now shows up to 3
-entries with nonzero frecency for the calling app (under a small "Recent"
-label), instead of a blank results region. Empty when nothing's ever been
-filled from that app — no alphabetical fallback, since that would read as a
-relevance claim this data doesn't support.
+**Empty query: recents, then suggestions — `renderSearchResults` in
+`VaultKeyboardView.kt`.** An empty query shows, in order:
+
+- **Recent** (`QuickFillRanking.recents()`): up to 3 entries with nonzero
+  frecency for the calling app. In a browser every site shares the
+  browser's one package name, so the label reads "Recent in Chrome" rather
+  than implying the entries match the open site.
+- **Suggested for Netflix** (`QuickFillRanking.suggestions()`): up to 5
+  entries matching the calling app, not already listed — so the very first
+  use in an app isn't blank. It matches the app's display name ("Netflix",
+  "Chase Mobile") and the meaningful segments of its package name
+  (`com.netflix.mediaclient` → "netflix"; generic segments like `com`,
+  `android`, `mobile` are dropped) against each entry's title and, for a
+  Login, its URL host minus `www.` and the TLD. Everything is lower-cased
+  with only letters and digits kept, and a match is either string containing
+  the other, both at least 3 characters. Ordered by frecency, then title.
+  **Native apps only:** a browser's name says nothing about the site.
+- Neither: a one-line hint, "Type to search your vault".
+
+The app's name comes from `VaultIme.resolveAppLabel` (unfiltered — "Chrome"
+in a browser), passed with an `isBrowser` flag through `setDetectedContext`;
+the account-creation title guess stays browser-filtered
+(`resolveTitleGuess`). There is still no alphabetical fallback: an
+unranked list would read as a relevance claim this data doesn't support.
+
+**No matches.** A typed query with no results shows "No matches for 'xyz'"
+and a **Save new login for 'xyz'** button, which starts a new entry titled
+after the query (first letter capitalised) — creating the entry where the
+user just found it missing.
 
 **Session persistence — `start()`/`stop()`/`buildRootView()` in
-`VaultKeyboardView.kt`.** `start()` no longer clears `query` or
-`selectedEntryId`, and no longer forces `screen` back to `SEARCH` — it only
-forces `Screen.CREATE` when a draft is in progress, same as before. A stale
+`VaultKeyboardView.kt`.** Persistence is **per calling app**: reopening the
+keyboard in the same app keeps `query`, `selectedEntryId`, `screen` and the
+scroll position. A show from a *different* app (`callingPackage` differs
+from `lastSessionPackage`) resets all of them to an empty search
+(`resetSearchSession`), because resuming there would offer one app's entry,
+Fill buttons live, inside another (`docs/IME-UX-REVIEW.md` P3). Either way,
+`start()` forces `Screen.CREATE` when a draft is in progress (drafts survive
+app switches by design, see `ACCOUNT-CREATION-DESIGN.md`'s "Session
+lifetime") and leaves `Screen.CREATE` for search when the draft has ended
+while the keyboard was closed. A stale
 `selectedEntryId` (the entry got deleted or the vault relocked while the
 keyboard was closed) is caught by `renderResultsArea`'s existing staleness
 guard, unchanged. `revealedFields` still clears unconditionally on every
@@ -68,14 +99,13 @@ must hit something — an exact substring or, failing that, a word within
 Levenshtein distance 1 (terms ≤4 chars) or 2 (longer) — or the entry doesn't
 match at all; this is AND-across-terms, same as the app-side rule.
 
-**Avatars — `buildAvatar`/`avatarColorFor` in `VaultKeyboardView.kt`.**
-No favicon fetching on this side (no network access from the IME, and
-`FillEntry` carries no icon URL). Every result/recents row gets the same
-initial-letter, hash-colored-circle fallback the app itself uses when a
-favicon isn't available — same six-color idea as `EntryList.tsx`'s
-`avatarColor`, not guaranteed to produce the identical color per entry
-(JS/Kotlin integer overflow differs), which is cosmetic, not a correctness
-concern.
+**Rows — `buildResultRow`/`buildAvatar` in `VaultKeyboardView.kt`.** Every
+result row shows the same icon the app's entry list does (a Login's
+favicon, fetched by the app and handed over the bridge — the IME itself has
+no network access — or the neutral plate with the entry type's glyph),
+the title, and a one-line subtitle (a Login's username) so two accounts on
+one site can be told apart. See `docs/MANUAL-FILL-DESIGN.md`'s "Picker UI"
+and "Result-row icons".
 
 **Fix a mistake — `onClearField` (new callback) + the bottom action rows.**
 A new "✕" key sits next to Lock on every bottom action row (search/detail/

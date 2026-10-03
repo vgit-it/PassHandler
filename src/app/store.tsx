@@ -14,7 +14,7 @@ import { EMPTY_SYNC_STATE, SyncSnapshot } from '../sync/types';
 import { toFillText } from '../vault/fillFormat';
 import { Vault } from '../vault/vault';
 import { EntryField, EntryInput, LOGIN_TYPE_ID, VaultEntry, VaultError } from '../vault/types';
-import { isKnownEntryType } from '../vault/entryTypes';
+import { getEntryType, isKnownEntryType } from '../vault/entryTypes';
 import {
   DraftSnapshot,
   DraftState,
@@ -27,8 +27,10 @@ import {
   listEntryTypeOptions,
   listKnownEmails,
 } from '../vault/accountCreationDraft';
-import { DEFAULT_SETTINGS, ExportOutcome, Platform, Settings } from '../platform/ports';
+import { DEFAULT_SETTINGS, ExportOutcome, FaviconIcon, Platform, Settings } from '../platform/ports';
+import { TipScreen } from '../ui/tips/tipSets';
 import { completeOauthRedirect, configureDrive } from '../platform/tauri';
+import { MAX_ICON_BASE64_LEN } from '../ui/hooks/useFavicon';
 import { GeneratorOptions, clampLength, generatePassword } from '../crypto/generator';
 
 export type Phase = 'loading' | 'onboarding' | 'locked' | 'unlocked';
@@ -58,8 +60,14 @@ export type Phase = 'loading' | 'onboarding' | 'locked' | 'unlocked';
  * left that can actually enforce the idle timeout for an IME-only session.
  */
 interface VaultFillBridge {
-  listEntries(): { id: string; title: string; type: string; fields: EntryField[] }[];
+  listEntries(): { id: string; title: string; type: string; typeLabel: string; fields: EntryField[] }[];
   readField(id: string, key: string): string | null;
+  /** One Login entry's site icon (favicon), for the IME's result rows —
+   * see `SiteIconResult` and `docs/MANUAL-FILL-DESIGN.md`'s "Result-row
+   * icons". Asked per entry, never bundled into `listEntries`: that list is
+   * re-fetched every two seconds while the picker is open, and re-sending
+   * every icon's bytes on each poll would dwarf the list itself. */
+  readIcon(id: string): SiteIconResult;
   /** The keyboard's own "Lock" key — see `WebViewBridge.lockVault` on the
    * Kotlin side. A plain pass-through to this provider's own `lock`
    * action, exposed here because locking is app/vault state, same as
@@ -68,6 +76,16 @@ interface VaultFillBridge {
    * `VaultCreateBridge`'s doc further down. */
   lock(): void;
 }
+
+/** `VaultFillBridge.readIcon`'s answer. `pending` means the fetch is still
+ * in flight — the IME simply asks again on its next two-second refresh.
+ * `none` covers every "no icon" reason alike (not a Login, no URL, site
+ * icons switched off in Settings, fetch failed, the site has none): the IME
+ * shows the entry's plain plate for all of them, same as `EntrySiteIcon`. */
+type SiteIconResult =
+  | { status: 'ready'; mime: string; dataBase64: string }
+  | { status: 'pending' }
+  | { status: 'none' };
 
 // The draft's own state shape, field-list derivation, wire-snapshot
 // building, and `EntryInput` construction all live in
@@ -248,6 +266,10 @@ interface AppState {
    * Cleared by `dismissOnboardingWelcome` — see that action's own doc for
    * when. */
   justOnboarded: boolean;
+  /** Screens where a first-run tip sequence finished or was skipped in this
+   * unlock session — see `tipSets.ts`'s `TipContext.finishedThisSession`.
+   * In memory only; cleared on lock. */
+  tipsFinishedThisSession: TipScreen[];
 }
 
 interface AppActions {
@@ -303,6 +325,11 @@ interface AppActions {
    * automatically on a timer or on navigation — the welcome is meant to
    * stay until the person actually does something with it. */
   dismissOnboardingWelcome(): void;
+  /** A tip sequence was finished (Done) or skipped — never shown again on
+   * this device. See `docs/ONBOARDING-TIPS-DESIGN.md`. */
+  markTipsSeen(id: string, screen: TipScreen): Promise<void>;
+  /** About → "Show tips again". */
+  resetTips(): Promise<void>;
 }
 
 const Ctx = createContext<(AppState & AppActions) | null>(null);
@@ -379,6 +406,7 @@ export function AppProvider({
   const [busy, setBusy] = useState(false);
   const [autoLockCreeping, setAutoLockCreeping] = useState(false);
   const [justOnboarded, setJustOnboarded] = useState(false);
+  const [tipsFinishedThisSession, setTipsFinishedThisSession] = useState<TipScreen[]>([]);
   const [justTransitioned, setJustTransitioned] = useState(false);
   const [playUnlockReveal, setPlayUnlockReveal] = useState(false);
 
@@ -473,6 +501,7 @@ export function AppProvider({
     vaultRef.current.lock();
     vaultRef.current = null;
     setEntries([]);
+    setTipsFinishedThisSession([]);
     setPhase('locked');
     setJustTransitioned(true);
     setPlayUnlockReveal(false);
@@ -656,6 +685,34 @@ export function AppProvider({
   useEffect(() => {
     if (!platform.isAndroid || phase !== 'unlocked') return;
 
+    // `readIcon`'s cache, keyed by URL: the fetched icon, `null` for a
+    // confirmed miss, or `'pending'` while `fetchFavicon` is in flight.
+    // Local to this effect, so it's dropped with the bridge on lock.
+    const siteIcons = new Map<string, FaviconIcon | null | 'pending'>();
+    const siteIconUrl = (entry: VaultEntry) =>
+      entry.type === LOGIN_TYPE_ID ? (entry.fields.find((f) => f.key === 'url')?.value.trim() ?? '') : '';
+    const loadSiteIcon = (url: string) => {
+      if (siteIcons.has(url)) return;
+      siteIcons.set(url, 'pending');
+      platform.fetchFavicon(url).then(
+        (icon) => siteIcons.set(url, icon && icon.dataBase64.length <= MAX_ICON_BASE64_LEN ? icon : null),
+        () => siteIcons.set(url, null),
+      );
+    };
+    // Warmed up front, while the page is still in the foreground: a
+    // `readIcon` call can arrive while this page is fully backgrounded (see
+    // `enforceAutoLockOnBridgeCall`), and whether an IPC round trip started
+    // from that state ever resolves is not something to depend on. The
+    // on-demand path in `readIcon` covers only entries added after unlock.
+    // Nearly all of these are in-memory hits on the Rust side — the entry
+    // list's own `useFavicon` asks for the same icons.
+    if (settings.showSiteIcons) {
+      for (const entry of vaultRef.current?.listEntries() ?? []) {
+        const url = siteIconUrl(entry);
+        if (url !== '') loadSiteIcon(url);
+      }
+    }
+
     window.__vaultFill = {
       listEntries: () => {
         if (enforceAutoLockOnBridgeCall(false)) return [];
@@ -663,6 +720,11 @@ export function AppProvider({
           id: entry.id,
           title: entry.title,
           type: entry.type,
+          // The type's display name ("Secure Note", not "secureNote") for
+          // the IME's detail header — the registry lives on this side only.
+          // An unknown type id is sent as-is rather than through
+          // `getEntryType`, whose fallback would mislabel it "Login".
+          typeLabel: isKnownEntryType(entry.type) ? getEntryType(entry.type).label : entry.type,
           // Sent as-is except for `value` itself: a sensitive field's is
           // already `''` on the list model (see `VaultEntry`'s doc
           // comment), so this never leaks a secret into the picker's
@@ -685,13 +747,25 @@ export function AppProvider({
         if (enforceAutoLockOnBridgeCall()) return null;
         return vaultRef.current?.readField(id, key) ?? null;
       },
+      // `false`, like `listEntries`: the IME asks for icons on its own
+      // while rendering rows, never because the user did anything.
+      readIcon: (id) => {
+        if (enforceAutoLockOnBridgeCall(false) || !settings.showSiteIcons) return { status: 'none' };
+        const entry = vaultRef.current?.listEntries().find((e) => e.id === id);
+        const url = entry ? siteIconUrl(entry) : '';
+        if (url === '') return { status: 'none' };
+        loadSiteIcon(url);
+        const icon = siteIcons.get(url);
+        if (icon === 'pending') return { status: 'pending' };
+        return icon ? { status: 'ready', mime: icon.mime, dataBase64: icon.dataBase64 } : { status: 'none' };
+      },
       lock,
     };
 
     return () => {
       delete window.__vaultFill;
     };
-  }, [platform.isAndroid, phase, lock, enforceAutoLockOnBridgeCall]);
+  }, [platform, phase, settings.showSiteIcons, lock, enforceAutoLockOnBridgeCall]);
 
   // Streamlined account creation's bridge — see `VaultCreateBridge`'s
   // doc above. Same guard, same "installed only while unlocked is what
@@ -986,6 +1060,7 @@ export function AppProvider({
       justOnboarded,
       justTransitioned,
       playUnlockReveal,
+      tipsFinishedThisSession,
 
       createVault,
       adoptRemoteVault,
@@ -1109,6 +1184,17 @@ export function AppProvider({
       },
 
       dismissOnboardingWelcome: () => setJustOnboarded(false),
+
+      markTipsSeen: async (id, screen) => {
+        setTipsFinishedThisSession((prev) => (prev.includes(screen) ? prev : [...prev, screen]));
+        if (settings.tipsSeen.includes(id)) return;
+        await persistSettings({ ...settings, tipsSeen: [...settings.tipsSeen, id] });
+      },
+
+      resetTips: async () => {
+        setTipsFinishedThisSession([]);
+        await persistSettings({ ...settings, tipsSeen: [] });
+      },
     }),
     [
       phase,
@@ -1127,6 +1213,7 @@ export function AppProvider({
       justOnboarded,
       justTransitioned,
       playUnlockReveal,
+      tipsFinishedThisSession,
       createVault,
       adoptRemoteVault,
       pullRemoteVault,

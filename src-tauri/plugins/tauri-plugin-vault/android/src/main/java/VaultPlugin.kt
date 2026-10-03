@@ -10,7 +10,9 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PersistableBundle
+import android.provider.Settings
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.result.ActivityResult
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -356,6 +358,38 @@ class VaultPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     // ----------------------------------------------------- window security
+
+    // ------------------------------------------------------------ keyboard
+
+    /**
+     * Whether Vault's own keyboard (`VaultIme`, in the app's package) is
+     * turned on in the system keyboard list. Matched by package rather than
+     * by class name, so this never drifts from the IME's actual class.
+     */
+    @Command
+    fun keyboardStatus(invoke: Invoke) {
+        val imm = activity.getSystemService(InputMethodManager::class.java)
+        val enabled = imm?.enabledInputMethodList?.any { it.packageName == activity.packageName } ?: false
+        val result = JSObject()
+        result.put("available", true)
+        result.put("enabled", enabled)
+        invoke.resolve(result)
+    }
+
+    /**
+     * Android gives an app no way to turn a keyboard on itself — the person
+     * has to flip it on in this system screen, which also shows the OS's own
+     * warning about keyboards that can read what's typed.
+     */
+    @Command
+    fun openKeyboardSettings(invoke: Invoke) {
+        try {
+            activity.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+            invoke.resolve(JSObject())
+        } catch (_: Exception) {
+            invoke.reject("keyboard settings unavailable")
+        }
+    }
 
     /**
      * `FLAG_SECURE` keeps the unlocked vault out of the task-switcher preview
