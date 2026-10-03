@@ -15,8 +15,10 @@
 // `themes.xml` variants). Those four used to exist only in `gen/` — a fresh
 // `android init` (CI, a new machine) replaced them with Tauri's stock
 // versions, and `VaultIme.kt` references `MainActivity.EXTRA_LAUNCHED_FROM_FILL`,
-// which the stock activity doesn't have. If you hand-edit any other file
-// under `gen/android/`, move it here and add it below in the same change.
+// which the stock activity doesn't have. The launcher icon (`res/mipmap-*`)
+// is here for the same reason: left in `gen/` only, release builds shipped
+// Tauri's default logo. If you hand-edit any other file under
+// `gen/android/`, move it here and add it below in the same change.
 //
 // Run this after `tauri android init` (first time, or any time `gen/` was
 // deleted and recreated) and before building/running the Android app. Safe
@@ -107,6 +109,32 @@ const drawableTo = join(appMain, 'res', 'drawable');
 for (const file of drawableFiles) copyInto(file, drawableFrom, drawableTo);
 
 copyInto('method.xml', join(sourceDir, 'res', 'xml'), join(appMain, 'res', 'xml'));
+
+// The launcher icon. `android init` writes Tauri's default logo into these
+// folders, so without this every fresh `gen/` (CI, a release build) ships
+// that instead of Vault's own. Their sources are
+// `src-tauri/icons/icon-android-{fg,bg}-source.*` (`icon-manifest.json`);
+// a changed icon goes into the copies here, never the ones under `gen/`.
+const launcherDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'];
+const launcherFiles = [
+  'ic_launcher.png',
+  'ic_launcher_round.png',
+  'ic_launcher_foreground.png',
+  'ic_launcher_background.png',
+];
+for (const density of launcherDensities) {
+  const dir = `mipmap-${density}`;
+  for (const file of launcherFiles) {
+    copyInto(file, join(sourceDir, 'res', dir), join(appMain, 'res', dir));
+  }
+}
+// The adaptive icon (Android 8+) that layers the foreground over the
+// background above.
+copyInto(
+  'ic_launcher.xml',
+  join(sourceDir, 'res', 'mipmap-anydpi-v26'),
+  join(appMain, 'res', 'mipmap-anydpi-v26'),
+);
 
 // Overwrite the generated theme resources: `home_background` (colors.xml) is
 // what `MainActivity.kt` paints the system bars with and what both theme

@@ -115,9 +115,9 @@ npm run tauri android build --apk
 
 Every hand-authored Android file — the custom IME (`VaultIme.kt`/
 `VaultKeyboardView.kt`/etc.), this app's `MainActivity.kt` (which replaces
-the stub `android init` generates), and the theme resources it depends on
-(`colors.xml`, both `themes.xml`) — lives in the tracked
-`src-tauri/android-ime/`, and `npm run android:sync-ime`
+the stub `android init` generates), the theme resources it depends on
+(`colors.xml`, both `themes.xml`), and the launcher icon (`res/mipmap-*`) —
+lives in the tracked `src-tauri/android-ime/`, and `npm run android:sync-ime`
 (`scripts/sync-android-ime.js`) copies it into `gen/android` and patches in
 its manifest entries, including the OAuth redirect `intent-filter` when
 `VITE_GOOGLE_CLIENT_ID_ANDROID` is set. Run it every time `gen/` is freshly

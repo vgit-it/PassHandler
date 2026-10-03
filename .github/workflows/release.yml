@@ -163,9 +163,10 @@ jobs:
         run: npx tauri android init
 
       # Every hand-authored Android file — the keyboard (IME), this app's
-      # MainActivity, its theme resources — lives in src-tauri/android-ime/
-      # and only reaches gen/android/ through this. Skipping it still builds,
-      # just with Tauri's stub MainActivity and no keyboard at all. It also
+      # MainActivity, its theme resources, the launcher icon — lives in
+      # src-tauri/android-ime/ and only reaches gen/android/ through this.
+      # Skipping it still builds, just with Tauri's stub MainActivity, no
+      # keyboard at all, and Tauri's default logo as the app icon. It also
       # inserts the OAuth redirect intent-filter from the .env written above,
       # without which Google sign-in can never return to the app.
       - name: Sync the Android IME source

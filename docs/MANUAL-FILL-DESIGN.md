@@ -745,6 +745,8 @@ and `npm run android:sync-ime` (`scripts/sync-android-ime.js`) copies it into
 - every `.kt` file — the IME, `WebViewBridge`, the quick-fill ranking, the
   preview activity, and `MainActivity.kt` (which replaces the generated stub);
 - the drawables and `res/xml/method.xml`;
+- the launcher icon, every `res/mipmap-*` density plus the adaptive-icon
+  XML — `android init` writes Tauri's default logo there otherwise;
 - `res/values/colors.xml` and both `res/values{,-night}/themes.xml` (the
   `home_background` window/system-bar color `MainActivity` depends on);
 - the IME service and preview-activity manifest blocks
